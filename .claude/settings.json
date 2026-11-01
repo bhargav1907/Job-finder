@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(ls*)",
+      "Bash(pwd)",
+      "Bash(cat*)",
+      "Bash(node --version)",
+      "Bash(npm test*)",
+      "Bash(npm run*)",
+      "Bash(npx*)",
+      "Bash(python3 --version)",
+      "Bash(pytest*)",
+      "Bash(python3 -m pytest*)",
+      "Bash(python3 -m venv*)"
+    ],
+    "ask": [
+      "Bash(git push*)",
+      "Bash(gh*)",
+      "Bash(curl*)",
+      "Bash(rm*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(rm -rf /*)",
+      "Bash(git push --force*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "CMD=$(cat); if echo \"$CMD\" | grep -qE 'rm -rf /|git push .*--force|git commit .*--no-verify'; then echo 'Blocked by PreToolUse hook: destructive command needs manual approval.' >&2; exit 2; fi"
+          }
+        ]
+      }
+    ]
+  }
+}
