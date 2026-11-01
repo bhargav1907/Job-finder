@@ -24,7 +24,9 @@ class Settings(BaseSettings):
     llm_api_key: str = "ollama"  # Ollama ignores the value, the SDK requires one
     llm_parse_model: str = "lfm3:1.7b"
     llm_rerank_model: str = "lfm3:1.7b"
-    llm_fallback_model: str = "gemma4:12b"
+    # Small fallback, loaded only when the primary returns invalid JSON.
+    # Set to "" to disable and rely on a same-model repair retry.
+    llm_fallback_model: str = "llama3.2:3b"
     llm_timeout: float = 120.0
 
     # Storage

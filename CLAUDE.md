@@ -26,6 +26,14 @@ Frontend, from `frontend/`:
 
 Both at once: `./scripts/dev.sh`
 
+## Current status
+
+- **M1 done** (commits `6874a0d`, `5be0233`): seed corpus, normalization, idempotent
+  ingest, local embeddings, `GET /api/jobs`, local LLM client, `/api/health/llm`.
+- **Pending:** M2 resume upload/parse, M3 retrieval, M4 rerank + cache, M5 frontend, M6 tests/docs.
+- Primary model `lfm3:1.7b`; fallback `llama3.2:3b` loads only on invalid JSON.
+  Heavier models (e.g. `gemma4:12b`) are deliberately not used on this 16 GB machine.
+
 ## Layout
 
 - `backend/app/sources/` — job providers behind the `JobSource` protocol
