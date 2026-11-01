@@ -5,6 +5,13 @@ preferences, and get ranked roles with a fit score, reasons, and skill gaps.
 
 > **v1 status:** internal demo. Seed data only, no login, no live job feeds.
 
+## Prerequisites
+
+- Python 3.14 and Node 20+
+- [Ollama](https://ollama.com) with the local model pulled: `ollama pull lfm3:1.7b`
+
+No cloud API keys are used. Parsing and scoring run entirely on your machine.
+
 ## Quickstart
 
 ```bash
@@ -12,7 +19,7 @@ preferences, and get ranked roles with a fit score, reasons, and skill gaps.
 cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp env.example .env              # add your ARK_API_KEY
+cp env.example .env              # defaults target local Ollama
 python -m app.cli ingest         # load ~100 seed listings
 uvicorn app.main:app --reload    # http://localhost:8000/docs
 

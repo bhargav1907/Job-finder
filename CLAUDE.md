@@ -8,6 +8,11 @@ v1 is an internal demo: seed jobs, no auth, no live job APIs.
 
 ## Commands
 
+Local model, once per machine:
+
+- `ollama pull lfm3:1.7b` — the default parse/rerank model (~1.7 GB)
+- `ollama serve` — usually already running on :11434
+
 Backend, from `backend/` with the venv active:
 
 - `uvicorn app.main:app --reload` — API at http://localhost:8000, docs at `/docs`
@@ -41,7 +46,11 @@ Both at once: `./scripts/dev.sh`
 
 ## Gotchas
 
-- `.env` is gitignored. Use a dedicated `ARK_API_KEY`; never the Claude Code auth token.
+- The LLM is local (Ollama). Never point `LLM_BASE_URL` at a coding-plan or harness
+  endpoint; those credentials are licensed for approved harnesses, not application calls.
+- `.env` is gitignored; start from `env.example`.
+- Small local models drop items from batch output. Always validate that every requested
+  `job_id` came back before trusting a rerank response.
 - Seed listings are demo data. The UI must show a "demo data" badge; never imply they are live.
 - Do not scrape LinkedIn, Indeed, or Naukri. Real sources are official APIs or public ATS boards.
 
