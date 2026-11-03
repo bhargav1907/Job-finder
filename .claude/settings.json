@@ -12,6 +12,7 @@
       "Bash(ls*)",
       "Bash(pwd)",
       "Bash(cat*)",
+      "Bash(curl*)",
       "Bash(node --version)",
       "Bash(npm test*)",
       "Bash(npm run*)",
@@ -24,7 +25,6 @@
     "ask": [
       "Bash(git push*)",
       "Bash(gh*)",
-      "Bash(curl*)",
       "Bash(rm*)"
     ],
     "deny": [
