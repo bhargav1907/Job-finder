@@ -124,5 +124,10 @@ company-specific behavior, adding a dependency, or changing the database schema 
 public API.
 
 Make the smallest change that solves the task. No unrequested refactors, renames, or
-drive-by reformatting — suggest them separately. Work on a branch, use Conventional
-Commit messages (`feat:`, `fix:`, `chore:`), and commit only when asked.
+drive-by reformatting — suggest them separately. Work on a branch and use Conventional
+Commit messages (`feat:`, `fix:`, `chore:`).
+
+Commit locally at each verified step — small commits are checkpoints. Do **not** push after
+every change. Push in batches only when a meaningful unit is finished and verified (a
+milestone such as M2 or M3, a complete feature, or the end of a work session), or when
+Bhargav asks. A push should leave `main` buildable and tests passing.
