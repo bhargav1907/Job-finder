@@ -35,6 +35,7 @@ class LLMClient:
         # Ollama's native endpoints sit at the root, not under /v1.
         self.base_url = base.removesuffix("/v1") if self.protocol == "ollama" else base
         self.timeout = timeout or settings.llm_timeout
+        self.num_ctx = settings.llm_num_ctx
 
     @property
     def available(self) -> bool:
@@ -49,12 +50,15 @@ class LLMClient:
         max_tokens: int = 1024,
         temperature: float = 0.0,
         json_mode: bool = False,
+        json_schema: dict | None = None,
     ) -> str:
         if not self.available:
             raise LLMError("No LLM configured. Is Ollama running and LLM_MODEL pulled?")
 
         if self.protocol == "ollama":
-            return self._ollama(system, user, model, max_tokens, temperature, json_mode)
+            return self._ollama(
+                system, user, model, max_tokens, temperature, json_mode, json_schema
+            )
         if self.protocol == "anthropic":
             return self._anthropic(system, user, model, max_tokens, temperature)
         return self._openai(system, user, model, max_tokens, temperature, json_mode)
@@ -66,6 +70,7 @@ class LLMClient:
         *,
         model: str,
         max_tokens: int = 1024,
+        json_schema: dict | None = None,
     ) -> object:
         raw = self.complete(
             system,
@@ -73,13 +78,21 @@ class LLMClient:
             model=model,
             max_tokens=max_tokens,
             json_mode=True,
+            json_schema=json_schema,
         )
         return extract_json(raw)
 
     # --- providers -------------------------------------------------------
 
     def _ollama(
-        self, system: str, user: str, model: str, max_tokens: int, temperature: float, json_mode: bool
+        self,
+        system: str,
+        user: str,
+        model: str,
+        max_tokens: int,
+        temperature: float,
+        json_mode: bool,
+        json_schema: dict | None,
     ) -> str:
         payload: dict = {
             "model": model,
@@ -89,9 +102,15 @@ class LLMClient:
             ],
             "stream": False,
             "think": False,  # LFM3 thinking mode returns empty content over chat APIs
-            "options": {"temperature": temperature, "num_predict": max_tokens},
+            "options": {
+                "temperature": temperature,
+                "num_predict": max_tokens,
+                "num_ctx": self.num_ctx,
+            },
         }
-        if json_mode:
+        if json_schema is not None:
+            payload["format"] = json_schema
+        elif json_mode:
             payload["format"] = "json"
 
         response = httpx.post(f"{self.base_url}/api/chat", json=payload, timeout=self.timeout)
