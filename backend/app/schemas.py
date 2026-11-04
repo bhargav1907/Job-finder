@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class JobRead(BaseModel):
@@ -34,3 +35,55 @@ class IngestStats(BaseModel):
     inserted: int
     skipped: int
     embedded: int
+
+
+class ExperienceEntry(BaseModel):
+    title: str
+    company: str
+    start: str = ""
+    end: str = ""
+    highlights: list[str] = Field(default_factory=list)
+
+
+class EducationEntry(BaseModel):
+    degree: str
+    institution: str
+    year: str = ""
+
+
+class LLMParsedProfile(BaseModel):
+    """Exactly what the model returns; every field is required."""
+
+    name: str
+    email: str
+    phone: str
+    location: str
+    summary: str
+    total_years_experience: float = Field(ge=0, le=60)
+    seniority: Literal["intern", "junior", "mid", "senior", "lead"]
+    target_roles: list[str]
+    preferred_locations: list[str]
+    remote_ok: bool
+    salary_min: int | None = Field(ge=0)
+    salary_max: int | None = Field(ge=0)
+    currency: str
+    skills: list[str]
+    experience: list[ExperienceEntry]
+    education: list[EducationEntry]
+    certifications: list[str]
+    projects: list[str]
+
+
+class ResumeProfile(LLMParsedProfile):
+    canonical_skills: list[str]
+
+
+class ResumeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    filename: str
+    profile: ResumeProfile
+    parse_model: str
+    content_hash: str
+    created_at: datetime
