@@ -10,7 +10,8 @@ v1 is an internal demo: seed jobs, no auth, no live job APIs.
 
 Local model, once per machine:
 
-- `ollama pull lfm3:1.7b` — the default parse/rerank model (~1.7 GB)
+- `ollama pull qwen3:4b` — the resume parse model (~2.5 GB)
+- `ollama pull lfm3:1.7b` — the rerank model (~1.7 GB)
 - `ollama serve` — usually already running on :11434
 
 Backend, from `backend/` with the venv active:
@@ -31,8 +32,10 @@ Both at once: `./scripts/dev.sh`
 Read `PROGRESS.md` at the start of each session for the active milestone, decisions,
 and next step, and update it after each finished step.
 
-Primary model `lfm3:1.7b`; fallback `llama3.2:3b` loads only on invalid JSON.
-Heavier models (e.g. `gemma4:12b`) are deliberately not used on this 16 GB machine.
+Resume parsing uses `qwen3:4b` (~3.9 GB loaded at 8K context); reranking uses
+`lfm3:1.7b`; fallback `llama3.2:3b` loads only on invalid JSON. `gemma4:12b` was tested
+and rejected — its 7.7 GB footprint thrashed this 16 GB machine. Do not move parsing to a
+model above ~3 GB of weights without checking memory.
 
 ## Layout
 
