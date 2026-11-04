@@ -64,3 +64,39 @@ def test_all_profile_fields_are_required():
     partial = {k: v for k, v in FULL_PROFILE.items() if k != "summary"}
     with pytest.raises(ValidationError):
         LLMParsedProfile.model_validate(partial)
+
+
+def test_invalid_then_valid_retries_primary():
+    partial = {k: v for k, v in FULL_PROFILE.items() if k != "summary"}
+    client = FakeClient([partial, FULL_PROFILE])
+    profile, model = parse_resume_text("Python", client=client)
+    assert profile.summary == "Junior data scientist."
+    assert model == "qwen3:4b"
+    assert [call[0] for call in client.calls] == ["qwen3:4b", "qwen3:4b"]
+
+
+def test_invalid_primary_twice_uses_fallback():
+    partial = {k: v for k, v in FULL_PROFILE.items() if k != "summary"}
+    client = FakeClient([partial, partial, FULL_PROFILE])
+    profile, model = parse_resume_text("Python", client=client)
+    assert profile.summary == "Junior data scientist."
+    assert model == "llama3.2:3b"
+
+
+def test_all_invalid_returns_heuristic_profile():
+    partial = {k: v for k, v in FULL_PROFILE.items() if k != "summary"}
+    client = FakeClient([partial, partial, partial])
+    profile, model = parse_resume_text("Expected 8-10 LPA. Skills: Python, SQL", client=client)
+    assert model == "heuristic-v1"
+    assert profile.name == ""
+    assert (profile.salary_min, profile.salary_max) == (800_000, 1_000_000)
+    assert set(profile.canonical_skills) >= {"python", "sql"}
+
+
+def test_transport_error_uses_fallback_then_heuristic():
+    from app.llm.client import LLMError
+
+    client = FakeClient([LLMError("down"), LLMError("down")])
+    profile, model = parse_resume_text("Skills: Python", client=client)
+    assert model == "heuristic-v1"
+    assert "python" in profile.canonical_skills

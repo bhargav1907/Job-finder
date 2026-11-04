@@ -2,8 +2,11 @@
 
 import re
 
+import httpx
+from pydantic import ValidationError
+
 from ..config import get_settings
-from ..llm.client import LLMClient
+from ..llm.client import LLMClient, LLMError
 from ..schemas import LLMParsedProfile, ResumeProfile
 from .normalize import extract_skills, parse_salary
 
@@ -18,20 +21,76 @@ target_roles are job titles, never locations or sentences."""
 _MONTHLY_RE = re.compile(r"(per\s+month|monthly|/\s*month|stipend)", re.IGNORECASE)
 
 
+_FAILURES = (ValidationError, LLMError, httpx.HTTPError)
+
+
 def parse_resume_text(
     text: str, *, client: LLMClient | None = None
 ) -> tuple[ResumeProfile, str]:
     client = client or LLMClient()
     settings = get_settings()
+    primary = settings.llm_parse_model
+    user = "RESUME:\n" + text
+
+    try:
+        parsed = _attempt(client, primary, user)
+        return _reconcile(parsed, text), primary
+    except ValidationError as exc:
+        try:
+            retry_prompt = f"{user}\n\nThe previous response failed validation: {exc}"
+            parsed = _attempt(client, primary, retry_prompt)
+            return _reconcile(parsed, text), primary
+        except _FAILURES:
+            pass
+    except (LLMError, httpx.HTTPError):
+        pass
+
+    fallback = settings.llm_fallback_model
+    if fallback and fallback != primary:
+        try:
+            parsed = _attempt(client, fallback, user)
+            return _reconcile(parsed, text), fallback
+        except _FAILURES:
+            pass
+
+    return _heuristic_profile(text), "heuristic-v1"
+
+
+def _attempt(client: LLMClient, model: str, user: str) -> LLMParsedProfile:
     raw = client.complete_json(
         SYSTEM_PROMPT,
-        "RESUME:\n" + text,
-        model=settings.llm_parse_model,
+        user,
+        model=model,
         max_tokens=2048,
         json_schema=LLMParsedProfile.model_json_schema(),
     )
-    parsed = LLMParsedProfile.model_validate(raw)
-    return _reconcile(parsed, text), settings.llm_parse_model
+    return LLMParsedProfile.model_validate(raw)
+
+
+def _heuristic_profile(text: str) -> ResumeProfile:
+    salary_min, salary_max, currency = parse_salary(text)
+    skills = extract_skills(text)
+    return ResumeProfile(
+        name="",
+        email="",
+        phone="",
+        location="",
+        summary="",
+        total_years_experience=0,
+        seniority="mid",
+        target_roles=[],
+        preferred_locations=[],
+        remote_ok="remote" in text.lower(),
+        salary_min=salary_min,
+        salary_max=salary_max,
+        currency=currency,
+        skills=skills,
+        canonical_skills=skills,
+        experience=[],
+        education=[],
+        certifications=[],
+        projects=[],
+    )
 
 
 def _reconcile(parsed: LLMParsedProfile, text: str) -> ResumeProfile:
