@@ -22,16 +22,22 @@ class Settings(BaseSettings):
     llm_protocol: str = "ollama"  # "ollama" (local), "openai", or "anthropic"
     llm_base_url: str = "http://localhost:11434"
     llm_api_key: str = "ollama"  # Ollama ignores the value, the SDK requires one
-    llm_parse_model: str = "lfm3:1.7b"
+    llm_parse_model: str = "qwen3:4b"
     llm_rerank_model: str = "lfm3:1.7b"
     # Small fallback, loaded only when the primary returns invalid JSON.
     # Set to "" to disable and rely on a same-model repair retry.
     llm_fallback_model: str = "llama3.2:3b"
     llm_timeout: float = 120.0
+    # Cap Ollama's context window so large defaults do not blow up memory.
+    llm_num_ctx: int = 8192
 
     # Storage
     database_url: str = f"sqlite:///{BACKEND_DIR / 'data' / 'jobfinder.db'}"
     seed_path: Path = PROJECT_ROOT / "data" / "seed_jobs.json"
+
+    # Resume upload
+    resume_max_bytes: int = 5 * 1024 * 1024
+    resume_max_chars: int = 50_000
 
     # Retrieval
     embedding_model: str = "BAAI/bge-small-en-v1.5"
