@@ -87,3 +87,19 @@ class ResumeRead(BaseModel):
     parse_model: str
     content_hash: str
     created_at: datetime
+
+
+class RecommendationItem(BaseModel):
+    job: JobRead
+    score: float
+    matched_skills: list[str]
+
+
+class RecommendationList(BaseModel):
+    resume_id: int
+    items: list[RecommendationItem]
+    items_without_salary: list[RecommendationItem]
+    total: int
+    without_salary_total: int
+    limit: int
+    retrieval_version: str
