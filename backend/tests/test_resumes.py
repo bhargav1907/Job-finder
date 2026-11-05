@@ -45,3 +45,44 @@ def test_same_text_is_not_parsed_twice(session, fake_embed, monkeypatch):
     assert first.id == second.id
     assert len(calls) == 1
     assert len(session.exec(select(Resume)).all()) == 1
+
+
+def test_embedding_text_includes_highlights_and_certifications(session, monkeypatch):
+    captured = {}
+    profile = make_profile()
+    profile.experience[0].highlights.append("Built a RAG pipeline with LangChain")
+    profile.certifications.append("AWS Certified Machine Learning")
+    profile.preferred_locations = ["Bengaluru", "remote"]
+
+    def fake_embed(texts):
+        captured["text"] = texts[0]
+        return np.ones((len(texts), 384), dtype=np.float32)
+
+    monkeypatch.setattr(service, "embed_texts", fake_embed)
+    monkeypatch.setattr(
+        service, "parse_resume_text", lambda text, client=None: (profile, "qwen3:4b")
+    )
+    service.create_resume(session, "priya.txt", b"Priya Sharma\nPython")
+
+    text = captured["text"]
+    assert "RAG pipeline" in text
+    assert "AWS Certified Machine Learning" in text
+    assert "Bengaluru" in text
+
+
+def test_reembed_resumes_recomputes_every_stored_vector(session, monkeypatch):
+    profile = make_profile()
+    monkeypatch.setattr(
+        service, "embed_texts", lambda texts: np.ones((len(texts), 384), dtype=np.float32)
+    )
+    monkeypatch.setattr(
+        service, "parse_resume_text", lambda text, client=None: (profile, "qwen3:4b")
+    )
+    row, _ = service.create_resume(session, "priya.txt", b"Priya Sharma\nPython")
+
+    monkeypatch.setattr(
+        service, "embed_texts", lambda texts: np.full((len(texts), 384), 2.0, dtype=np.float32)
+    )
+    assert service.reembed_resumes(session) == 1
+    session.refresh(row)
+    assert np.allclose(np.frombuffer(row.embedding, dtype=np.float32), 2.0)

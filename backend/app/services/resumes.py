@@ -2,6 +2,7 @@
 
 import hashlib
 
+from pydantic import ValidationError
 from sqlmodel import Session, select
 
 from ..config import get_settings
@@ -34,7 +35,7 @@ def create_resume(
         return existing, False
 
     profile, parse_model = parse_resume_text(text, client=client)
-    vector = embed_texts([_embed_text(profile)])[0]
+    vector = embed_texts([resume_embed_text(profile)])[0]
     row = Resume(
         filename=filename,
         text=text,
@@ -49,13 +50,42 @@ def create_resume(
     return row, True
 
 
-def _embed_text(profile: ResumeProfile) -> str:
+def resume_embed_text(profile: ResumeProfile) -> str:
     roles = ", ".join(profile.target_roles)
-    skills = ", ".join(profile.skills)
-    experience = "; ".join(f"{item.title} at {item.company}" for item in profile.experience)
+    skills = ", ".join(
+        sorted(set(profile.canonical_skills) | {skill.lower() for skill in profile.skills})
+    )
+    locations = ", ".join(profile.preferred_locations)
+    experience = "; ".join(
+        f"{item.title} at {item.company}"
+        + (f": {' '.join(item.highlights)}" if item.highlights else "")
+        for item in profile.experience
+    )
     education = "; ".join(f"{item.degree} at {item.institution}" for item in profile.education)
+    certifications = "; ".join(profile.certifications)
     projects = "; ".join(profile.projects)
     return (
         f"{profile.summary}. Roles: {roles}. Skills: {skills}. "
-        f"Experience: {experience}. Education: {education}. Projects: {projects}"
+        f"Locations: {locations}. Experience: {experience}. Education: {education}. "
+        f"Certifications: {certifications}. Projects: {projects}"
     )
+
+
+def reembed_resumes(session: Session) -> int:
+    """Recompute and store every resume vector. Skips profiles that fail validation."""
+    valid: list[tuple[Resume, ResumeProfile]] = []
+    for row in session.exec(select(Resume)).all():
+        try:
+            valid.append((row, ResumeProfile.model_validate(row.profile)))
+        except ValidationError:
+            continue
+
+    if not valid:
+        return 0
+
+    vectors = embed_texts([resume_embed_text(profile) for _, profile in valid])
+    for (row, _), vector in zip(valid, vectors, strict=True):
+        row.embedding = to_bytes(vector)
+        session.add(row)
+    session.commit()
+    return len(valid)
