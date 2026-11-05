@@ -5,13 +5,13 @@
 
 ## Current focus
 
-- **Last done:** M2 — resume upload and parse. PDF/DOCX/TXT upload, text extraction,
-  schema-constrained ATS-profile parse with retry/fallback/heuristic, SHA-256 dedupe,
-  SQLite storage, `POST /api/resumes`, `GET /api/resumes/{id}` (commits `b22f098`,
-  `3afb6c7`).
+- **Last done:** M3 — retrieval. Deterministic hard filters plus local embedding
+  similarity return up to 40 candidates per bucket through
+  `GET /api/resumes/{id}/recommendations`; resume embeddings now include highlights,
+  certifications, preferred locations, and canonical skills (commits `a87eec8`..`1ff353f`).
 - **In progress:** none.
-- **Next:** M3 — retrieval.
-- **Then:** M4 rerank + cache, M5 frontend, M6 tests/docs.
+- **Next:** M4 — rerank + cache.
+- **Then:** M5 frontend, M6 tests/docs.
 
 ## Decisions & invariants
 
@@ -31,6 +31,13 @@
 7. **Top-level split by runtime:** `backend/` and `frontend/` (Vite app, source in
    `frontend/src/`). No root `src/` — the empty root `src/` scaffold was removed on
    2026-11-03.
+8. **Retrieval is deterministic and LLM-free.** Explicit hard filters only, score =
+   `0.85 × cosine + 0.15 × skill share`, up to 40 candidates per bucket. No filter is
+   inferred from the resume.
+9. **A salary floor never hides unstated salaries.** Same-currency jobs below the floor
+   are excluded; missing or non-comparable salaries return in `items_without_salary`.
+10. **M4 returns the final 20 results.** A vector store waits for the Postgres + pgvector
+    migration; SQLite BLOBs and in-memory numpy are enough for the demo corpus.
 
 ## Open questions
 
