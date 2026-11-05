@@ -1,10 +1,16 @@
 from datetime import datetime, timezone
 
 import numpy as np
+import pytest
 
 from app.embeddings import to_bytes
 from app.models import Resume
-from app.services.retrieval import Candidate, _sort_key, retrieve_jobs
+from app.services.retrieval import (
+    Candidate,
+    RetrievalFilters,
+    _sort_key,
+    retrieve_jobs,
+)
 from tests.factories import make_job, make_profile
 
 
@@ -112,3 +118,77 @@ def test_resume_without_embedding_is_embedded_and_saved(session, monkeypatch):
     assert result.items[0].job.id == job.id
     session.refresh(resume)
     assert resume.embedding is not None
+
+
+def test_location_is_a_case_insensitive_substring(session):
+    resume = add_resume(session)
+    match = add_job(session, location="Bengaluru, India")
+    add_job(session, location="Chennai, India")
+    result = retrieve_jobs(session, resume, filters=RetrievalFilters(location="bengaluru"))
+    assert [c.job.id for c in result.items] == [match.id]
+
+
+def test_location_remote_matches_jobs_flagged_remote(session):
+    resume = add_resume(session)
+    remote_flag = add_job(session, location="Chennai, India", remote=True)
+    remote_text = add_job(session, location="Remote, India", remote=False)
+    add_job(session, location="Pune, India", remote=False)
+    result = retrieve_jobs(session, resume, filters=RetrievalFilters(location="remote"))
+    assert {c.job.id for c in result.items} == {remote_flag.id, remote_text.id}
+
+
+def test_remote_filter_is_exact(session):
+    resume = add_resume(session)
+    remote = add_job(session, remote=True)
+    add_job(session, remote=False)
+    result = retrieve_jobs(session, resume, filters=RetrievalFilters(remote=True))
+    assert [c.job.id for c in result.items] == [remote.id]
+
+
+@pytest.mark.parametrize(
+    "years,expected",
+    [
+        (0, {"intern", "junior"}),
+        (1, {"junior", "mid"}),
+        (2, {"junior", "mid"}),
+        (3, {"mid", "senior"}),
+        (5, {"mid", "senior"}),
+        (6, {"senior", "lead"}),
+    ],
+)
+def test_experience_maps_to_two_seniority_tiers(session, years, expected):
+    resume = add_resume(session)
+    for level in ("intern", "junior", "mid", "senior", "lead"):
+        add_job(session, seniority=level)
+    result = retrieve_jobs(
+        session, resume, filters=RetrievalFilters(experience_years=years)
+    )
+    assert {c.job.seniority for c in result.items} == expected
+
+
+def test_role_filter_uses_inferred_family(session):
+    resume = add_resume(session)
+    ai = add_job(session, title="AI Engineer", role_family="ai_ml")
+    add_job(session, title="Data Scientist", role_family="data")
+    result = retrieve_jobs(session, resume, filters=RetrievalFilters(role="AI Engineer"))
+    assert [c.job.id for c in result.items] == [ai.id]
+
+
+def test_unmapped_role_falls_back_to_title_substring(session):
+    resume = add_resume(session)
+    widget = add_job(session, title="Widget Wrangler", role_family="other")
+    add_job(session, title="Data Scientist", role_family="data")
+    result = retrieve_jobs(session, resume, filters=RetrievalFilters(role="Widget"))
+    assert [c.job.id for c in result.items] == [widget.id]
+
+
+def test_like_wildcards_are_escaped(session):
+    resume = add_resume(session)
+    add_job(session, location="Bengaluru, India")
+    add_job(session, location="Chennai, India")
+    assert retrieve_jobs(
+        session, resume, filters=RetrievalFilters(location="%")
+    ).items == []
+    assert retrieve_jobs(
+        session, resume, filters=RetrievalFilters(role="_")
+    ).items == []

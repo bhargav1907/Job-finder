@@ -8,11 +8,13 @@ from dataclasses import dataclass
 from datetime import timezone
 
 import numpy as np
+from sqlalchemy import or_
 from sqlmodel import Session, select
 
 from ..embeddings import embed_texts, from_bytes, to_bytes
 from ..models import Job, Resume
 from ..schemas import ResumeProfile
+from .normalize import infer_role_family
 from .resumes import resume_embed_text
 
 SEMANTIC_WEIGHT = 0.85
@@ -57,7 +59,9 @@ def retrieve_jobs(
     profile = ResumeProfile.model_validate(resume.profile)
     resume_vector = _resume_vector(session, resume, profile)
 
-    jobs = session.exec(select(Job).where(Job.embedding.is_not(None))).all()
+    stmt = select(Job).where(Job.embedding.is_not(None))
+    stmt = _apply_filters(stmt, filters)
+    jobs = session.exec(stmt).all()
     candidates: list[Candidate] = []
     for job in jobs:
         job_vector = from_bytes(job.embedding)
@@ -80,6 +84,41 @@ def retrieve_jobs(
         total=len(candidates),
         without_salary_total=0,
     )
+
+
+def _apply_filters(stmt, filters: RetrievalFilters):
+    if filters.location:
+        matches = Job.location.ilike(_like(filters.location), escape="\\")
+        if filters.location.strip().lower() == "remote":
+            matches = or_(matches, Job.remote.is_(True))
+        stmt = stmt.where(matches)
+    if filters.remote is not None:
+        stmt = stmt.where(Job.remote.is_(filters.remote))
+    if filters.experience_years is not None:
+        stmt = stmt.where(Job.seniority.in_(seniority_levels(filters.experience_years)))
+    if filters.role:
+        family = infer_role_family(filters.role)
+        if family == "other":
+            stmt = stmt.where(Job.title.ilike(_like(filters.role), escape="\\"))
+        else:
+            stmt = stmt.where(Job.role_family == family)
+    return stmt
+
+
+def _like(term: str) -> str:
+    term = term.strip()
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+def seniority_levels(years: int) -> tuple[str, ...]:
+    if years <= 0:
+        return ("intern", "junior")
+    if years <= 2:
+        return ("junior", "mid")
+    if years <= 5:
+        return ("mid", "senior")
+    return ("senior", "lead")
 
 
 def _resume_vector(session: Session, resume: Resume, profile: ResumeProfile) -> np.ndarray:
