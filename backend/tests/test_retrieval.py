@@ -192,3 +192,60 @@ def test_like_wildcards_are_escaped(session):
     assert retrieve_jobs(
         session, resume, filters=RetrievalFilters(role="_")
     ).items == []
+
+
+def test_salary_filter_splits_unknown_salaries_into_their_own_bucket(session):
+    resume = add_resume(session)
+    paid = add_job(session, salary_min=1_200_000, salary_max=1_800_000)
+    add_job(session, salary_min=800_000, salary_max=1_000_000)  # below floor
+    unknown = add_job(session, salary_min=None, salary_max=None)
+    result = retrieve_jobs(
+        session, resume, filters=RetrievalFilters(salary_min=1_500_000)
+    )
+    assert [c.job.id for c in result.items] == [paid.id]
+    assert [c.job.id for c in result.items_without_salary] == [unknown.id]
+    assert result.total == 1
+    assert result.without_salary_total == 1
+
+
+def test_different_currency_is_not_comparable(session):
+    resume = add_resume(session)
+    usd = add_job(session, currency="USD")
+    result = retrieve_jobs(
+        session, resume, filters=RetrievalFilters(salary_min=1_000_000)
+    )
+    assert result.items == []
+    assert [c.job.id for c in result.items_without_salary] == [usd.id]
+
+
+def test_missing_one_salary_bound_counts_as_unknown(session):
+    resume = add_resume(session)
+    partial = add_job(session, salary_min=1_200_000, salary_max=None)
+    result = retrieve_jobs(
+        session, resume, filters=RetrievalFilters(salary_min=1_000_000)
+    )
+    assert [c.job.id for c in result.items_without_salary] == [partial.id]
+
+
+def test_salary_limit_applies_to_each_bucket(session):
+    resume = add_resume(session)
+    for _ in range(3):
+        add_job(session, salary_min=1_200_000, salary_max=1_800_000)
+    for _ in range(3):
+        add_job(session, salary_min=None, salary_max=None)
+    result = retrieve_jobs(
+        session, resume, filters=RetrievalFilters(salary_min=1_500_000), limit=1
+    )
+    assert len(result.items) == 1
+    assert len(result.items_without_salary) == 1
+    assert result.total == 3
+    assert result.without_salary_total == 3
+
+
+def test_without_salary_filter_everything_ranks_in_items(session):
+    resume = add_resume(session)
+    add_job(session, salary_min=None, salary_max=None)
+    result = retrieve_jobs(session, resume)
+    assert len(result.items) == 1
+    assert result.items_without_salary == []
+    assert result.without_salary_total == 0

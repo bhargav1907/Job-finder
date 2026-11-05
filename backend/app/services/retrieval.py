@@ -58,11 +58,14 @@ def retrieve_jobs(
     filters = filters or RetrievalFilters()
     profile = ResumeProfile.model_validate(resume.profile)
     resume_vector = _resume_vector(session, resume, profile)
+    resume_currency = (profile.currency or "INR").upper()
 
     stmt = select(Job).where(Job.embedding.is_not(None))
     stmt = _apply_filters(stmt, filters)
     jobs = session.exec(stmt).all()
-    candidates: list[Candidate] = []
+
+    paid: list[Candidate] = []
+    unknown: list[Candidate] = []
     for job in jobs:
         job_vector = from_bytes(job.embedding)
         if job_vector.shape[0] != resume_vector.shape[0]:
@@ -73,16 +76,30 @@ def retrieve_jobs(
         matched_skills = sorted(set(profile.canonical_skills) & set(job_skills))
         skill_share = len(matched_skills) / len(job_skills) if job_skills else 0.0
         score = round(SEMANTIC_WEIGHT * semantic + SKILL_WEIGHT * skill_share, 4)
-        candidates.append(
-            Candidate(job=job, score=score, matched_skills=matched_skills)
-        )
+        candidate = Candidate(job=job, score=score, matched_skills=matched_skills)
 
-    candidates.sort(key=_sort_key)
+        if filters.salary_min is None:
+            paid.append(candidate)
+        elif _salary_is_unknown(job, resume_currency):
+            unknown.append(candidate)
+        elif job.salary_max >= filters.salary_min:
+            paid.append(candidate)
+
+    paid.sort(key=_sort_key)
+    unknown.sort(key=_sort_key)
     return RetrievalResult(
-        items=candidates[:limit],
-        items_without_salary=[],
-        total=len(candidates),
-        without_salary_total=0,
+        items=paid[:limit],
+        items_without_salary=unknown[:limit],
+        total=len(paid),
+        without_salary_total=len(unknown),
+    )
+
+
+def _salary_is_unknown(job: Job, currency: str) -> bool:
+    return (
+        job.salary_min is None
+        or job.salary_max is None
+        or (job.currency or "").upper() != currency
     )
 
 
