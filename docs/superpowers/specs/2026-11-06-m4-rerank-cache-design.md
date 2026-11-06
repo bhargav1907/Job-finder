@@ -153,8 +153,10 @@ idempotent. Exact jobs are left to the builder.
   currency, skills, and a description excerpt capped at 400 chars.
 - **Prompt**: instructs the model to use anchored bands (90–100 strong fit, 70–89 good,
   50–69 stretch, 30–49 weak, 0–29 poor), return 1–3 reasons and 1–3 gaps, judge
-  seniority and domain honestly, and never invent facts. Output is a JSON array of
-  objects with `job_id`, `score`, `reasons`, `gaps`, constrained by a JSON schema.
+  seniority and domain honestly, and never invent facts. Output is a JSON object with
+  a `results` array of `job_id`, `score`, `reasons`, `gaps`, constrained by a JSON
+  schema. An object root is more reliable with Ollama's schema-constrained generation
+  than a bare array.
 - **Batching**: `settings.rerank_batch_size` (10). Batches run sequentially; Ollama
   serves one request at a time well and this keeps memory and logs predictable.
 
@@ -199,10 +201,14 @@ result to schemas.
 
 Selection arithmetic, for clarity:
 
-1. `known_target = min(ceil(limit × (1 − unstated_target_share)), len(known))`.
-2. `unstated_target = min(limit − known_target, len(unstated))`.
-3. Fill each list to its target, then give any remaining slots to the other list while
-   candidates remain. Total never exceeds `limit`.
+1. `unstated_target = min(round(limit × unstated_target_share), len(unstated))`.
+2. `known_target = min(limit − unstated_target, len(known))`.
+3. If `known` was short, give the remaining `limit − known_target − unstated_target`
+   slots to `unstated` while candidates remain. Total never exceeds `limit`.
+
+Step 2 is what makes backfilling automatic in the other direction: when `unstated` is
+short, `known_target` grows to absorb the difference. Rounding on the share (rather
+than ceiling the complement) avoids floating-point drift at the default 30.
 
 ### Token logging
 
