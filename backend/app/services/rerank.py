@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from typing import Literal
 
 import httpx
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from ..config import get_settings
 from ..llm.client import LLMClient, LLMError
-from ..models import Job, Resume
+from ..models import Job, Match, Resume
 from ..schemas import ResumeProfile
 
 PROMPT_PREFIX = "rerank-v1"
@@ -174,14 +174,16 @@ def rerank_jobs(
     settings = get_settings()
     client = client or LLMClient()
     model = settings.llm_rerank_model
+    version = prompt_version(model)
     profile = ResumeProfile.model_validate(resume.profile)
     resume_card = _resume_card(profile)
     batch_size = settings.rerank_batch_size
 
-    results: dict[int, RerankResult] = {}
+    results = _cached_results(session, resume.id, {job.id for job in jobs}, version)
+    pending = [job for job in jobs if job.id not in results]
     stopped = False
-    for start in range(0, len(jobs), batch_size):
-        batch = jobs[start : start + batch_size]
+    for start in range(0, len(pending), batch_size):
+        batch = pending[start : start + batch_size]
         if stopped:
             results.update({job.id: _degraded() for job in batch})
             continue
@@ -197,6 +199,7 @@ def rerank_jobs(
         if batch_results is None:
             results.update({job.id: _degraded() for job in batch})
         else:
+            _store_results(session, resume.id, batch_results, model, version)
             results.update(batch_results)
 
     reranked = sum(result.reranked for result in results.values())
@@ -207,6 +210,56 @@ def rerank_jobs(
     else:
         status = "partial"
     return RerankOutcome(results=results, status=status)
+
+
+def _cached_results(
+    session: Session, resume_id: int, job_ids: set[int], version: str
+) -> dict[int, RerankResult]:
+    if not job_ids:
+        return {}
+    rows = session.exec(
+        select(Match).where(
+            Match.resume_id == resume_id,
+            Match.job_id.in_(job_ids),
+            Match.prompt_version == version,
+        )
+    ).all()
+    return {
+        row.job_id: RerankResult(
+            score=row.score,
+            reasons=list(row.reasons),
+            gaps=list(row.gaps),
+            reranked=True,
+        )
+        for row in rows
+    }
+
+
+def _store_results(
+    session: Session,
+    resume_id: int,
+    results: dict[int, RerankResult],
+    model: str,
+    version: str,
+) -> None:
+    for job_id, result in results.items():
+        if not result.reranked:
+            continue
+        row = session.exec(
+            select(Match).where(
+                Match.resume_id == resume_id,
+                Match.job_id == job_id,
+                Match.prompt_version == version,
+            )
+        ).first()
+        if row is None:
+            row = Match(resume_id=resume_id, job_id=job_id, prompt_version=version)
+            session.add(row)
+        row.score = result.score
+        row.reasons = list(result.reasons)
+        row.gaps = list(result.gaps)
+        row.model = model
+    session.commit()
 
 
 def _attempt_batch(

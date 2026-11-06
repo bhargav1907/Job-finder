@@ -31,9 +31,11 @@ import re
 
 import httpx
 import numpy as np
+from sqlmodel import select
 
+from app.config import get_settings
 from app.embeddings import to_bytes
-from app.models import Resume
+from app.models import Match, Resume
 from app.services.rerank import RerankOutcome, rerank_jobs
 
 
@@ -188,3 +190,58 @@ def test_empty_job_list_is_ok(session):
     assert outcome.results == {}
     assert outcome.status == "ok"
     assert client.calls == []
+
+
+def cache_match(session, resume, job, *, version, score=91):
+    row = Match(resume_id=resume.id, job_id=job.id, score=score,
+                reasons=["cached reason"], gaps=["cached gap"],
+                model="lfm3:1.7b", prompt_version=version)
+    session.add(row)
+    session.commit()
+    return row
+
+
+def test_cached_match_skips_the_model(session):
+    resume = add_resume(session)
+    jobs = add_jobs(session, 2)
+    version = prompt_version(get_settings().llm_rerank_model)
+    cache_match(session, resume, jobs[0], version=version)
+    client = FakeClient(valid_response([jobs[1].id]))
+    outcome = rerank_jobs(session, resume, jobs, client=client)
+    assert len(client.calls) == 1
+    assert batch_ids(client.calls[0]) == [jobs[1].id]
+    assert outcome.results[jobs[0].id].score == 91
+    assert outcome.results[jobs[0].id].reasons == ["cached reason"]
+    assert outcome.results[jobs[0].id].reranked is True
+
+
+def test_successful_batch_is_cached(session):
+    resume = add_resume(session)
+    jobs = add_jobs(session, 1)
+    outcome = rerank_jobs(session, resume, jobs,
+                          client=FakeClient(valid_response([jobs[0].id])))
+    stored = session.exec(
+        select(Match).where(Match.resume_id == resume.id, Match.job_id == jobs[0].id)
+    ).one()
+    assert stored.score == 80
+    assert stored.reasons == ["Fits the role."]
+    assert stored.prompt_version == prompt_version(get_settings().llm_rerank_model)
+    assert outcome.results[jobs[0].id].reranked is True
+
+
+def test_other_model_version_is_a_miss(session):
+    resume = add_resume(session)
+    jobs = add_jobs(session, 1)
+    cache_match(session, resume, jobs[0], version="rerank-v1@other:1b", score=12)
+    client = FakeClient(valid_response([jobs[0].id]))
+    outcome = rerank_jobs(session, resume, jobs, client=client)
+    assert len(client.calls) == 1
+    assert outcome.results[jobs[0].id].score == 80
+
+
+def test_degraded_items_are_not_cached(session):
+    resume = add_resume(session)
+    jobs = add_jobs(session, 1)
+    rerank_jobs(session, resume, jobs,
+                client=FakeClient(httpx.ConnectError("down")))
+    assert session.exec(select(Match)).all() == []
