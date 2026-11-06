@@ -63,6 +63,7 @@ def _attempt(client: LLMClient, model: str, user: str) -> LLMParsedProfile:
         model=model,
         max_tokens=2048,
         json_schema=LLMParsedProfile.model_json_schema(),
+        purpose="parse",
     )
     return LLMParsedProfile.model_validate(raw)
 

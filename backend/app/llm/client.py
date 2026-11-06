@@ -8,11 +8,14 @@ coding-plan / harness endpoint.
 """
 
 import json
+import logging
 import re
 
 import httpx
 
 from ..config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class LLMError(RuntimeError):
@@ -51,13 +54,15 @@ class LLMClient:
         temperature: float = 0.0,
         json_mode: bool = False,
         json_schema: dict | None = None,
+        purpose: str = "",
     ) -> str:
         if not self.available:
             raise LLMError("No LLM configured. Is Ollama running and LLM_MODEL pulled?")
 
         if self.protocol == "ollama":
             return self._ollama(
-                system, user, model, max_tokens, temperature, json_mode, json_schema
+                system, user, model, max_tokens, temperature, json_mode, json_schema,
+                purpose,
             )
         if self.protocol == "anthropic":
             return self._anthropic(system, user, model, max_tokens, temperature)
@@ -71,6 +76,7 @@ class LLMClient:
         model: str,
         max_tokens: int = 1024,
         json_schema: dict | None = None,
+        purpose: str = "",
     ) -> object:
         raw = self.complete(
             system,
@@ -79,6 +85,7 @@ class LLMClient:
             max_tokens=max_tokens,
             json_mode=True,
             json_schema=json_schema,
+            purpose=purpose,
         )
         return extract_json(raw)
 
@@ -93,6 +100,7 @@ class LLMClient:
         temperature: float,
         json_mode: bool,
         json_schema: dict | None,
+        purpose: str,
     ) -> str:
         payload: dict = {
             "model": model,
@@ -115,7 +123,17 @@ class LLMClient:
 
         response = httpx.post(f"{self.base_url}/api/chat", json=payload, timeout=self.timeout)
         response.raise_for_status()
-        return response.json().get("message", {}).get("content", "")
+        data = response.json()
+        nanos = data.get("total_duration")  # Ollama reports nanoseconds
+        logger.info(
+            "llm_call model=%s purpose=%s prompt_tokens=%s completion_tokens=%s total_ms=%s",
+            model,
+            purpose or "-",
+            data.get("prompt_eval_count", "-"),
+            data.get("eval_count", "-"),
+            round(nanos / 1_000_000) if isinstance(nanos, int) else "-",
+        )
+        return data.get("message", {}).get("content", "")
 
     def _anthropic(self, system: str, user: str, model: str, max_tokens: int, temperature: float) -> str:
         import anthropic

@@ -11,7 +11,8 @@ class FakeClient:
         self.responses = list(responses)
         self.calls = []
 
-    def complete_json(self, system, user, *, model, max_tokens, json_schema=None):
+    def complete_json(self, system, user, *, model, max_tokens, json_schema=None,
+                      purpose=""):
         self.calls.append((model, json_schema))
         if not self.responses:
             raise AssertionError("unexpected extra LLM call")
