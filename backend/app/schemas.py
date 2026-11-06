@@ -92,7 +92,11 @@ class ResumeRead(BaseModel):
 class RecommendationItem(BaseModel):
     job: JobRead
     score: float
+    retrieval_score: float
     matched_skills: list[str]
+    reasons: list[str]
+    gaps: list[str]
+    reranked: bool
 
 
 class RecommendationList(BaseModel):
@@ -103,3 +107,5 @@ class RecommendationList(BaseModel):
     without_salary_total: int
     limit: int
     retrieval_version: str
+    rerank_status: Literal["ok", "partial", "unavailable"]
+    rerank_version: str

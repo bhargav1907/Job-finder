@@ -5,12 +5,8 @@ from ..config import get_settings
 from ..db import get_session
 from ..models import Resume
 from ..schemas import JobRead, RecommendationItem, RecommendationList
-from ..services.retrieval import (
-    RETRIEVAL_VERSION,
-    Candidate,
-    RetrievalFilters,
-    retrieve_jobs,
-)
+from ..services.recommend import RecommendedJob, recommend_jobs as recommend
+from ..services.retrieval import RETRIEVAL_VERSION, RetrievalFilters
 
 router = APIRouter()
 
@@ -30,8 +26,9 @@ def recommend_jobs(
     if resume is None:
         raise HTTPException(status_code=404, detail="Resume not found")
 
-    resolved_limit = limit or get_settings().top_k
-    result = retrieve_jobs(
+    settings = get_settings()
+    resolved_limit = limit or settings.final_top_k
+    result = recommend(
         session,
         resume,
         filters=RetrievalFilters(
@@ -45,20 +42,24 @@ def recommend_jobs(
     )
     return RecommendationList(
         resume_id=resume_id,
-        items=[_item(candidate) for candidate in result.items],
-        items_without_salary=[
-            _item(candidate) for candidate in result.items_without_salary
-        ],
+        items=[_item(item) for item in result.items],
+        items_without_salary=[_item(item) for item in result.items_without_salary],
         total=result.total,
         without_salary_total=result.without_salary_total,
         limit=resolved_limit,
         retrieval_version=RETRIEVAL_VERSION,
+        rerank_status=result.rerank_status,
+        rerank_version=result.rerank_version,
     )
 
 
-def _item(candidate: Candidate) -> RecommendationItem:
+def _item(item: RecommendedJob) -> RecommendationItem:
     return RecommendationItem(
-        job=JobRead.model_validate(candidate.job),
-        score=candidate.score,
-        matched_skills=candidate.matched_skills,
+        job=JobRead.model_validate(item.job),
+        score=item.score,
+        retrieval_score=item.retrieval_score,
+        matched_skills=item.matched_skills,
+        reasons=item.reasons,
+        gaps=item.gaps,
+        reranked=item.reranked,
     )
