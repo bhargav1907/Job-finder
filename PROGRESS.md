@@ -5,13 +5,13 @@
 
 ## Current focus
 
-- **Last done:** M3 — retrieval. Deterministic hard filters plus local embedding
-  similarity return up to 40 candidates per bucket through
-  `GET /api/resumes/{id}/recommendations`; resume embeddings now include highlights,
-  certifications, preferred locations, and canonical skills (commits `a87eec8`..`1ff353f`).
+- **Last done:** M4 — rerank + cache. `lfm3:1.7b` reranks 40 candidates in validated
+  batches of 10; blended scores return up to 30 results split 20 known / 10 unstated
+  with backfill; judgments cache in `matches` by resume, job, and model-aware prompt
+  version (commits `a6599a9`..`c54fcb2`).
 - **In progress:** none.
-- **Next:** M4 — rerank + cache.
-- **Then:** M5 frontend, M6 tests/docs.
+- **Next:** M5 — frontend.
+- **Then:** M6 tests/docs.
 
 ## Decisions & invariants
 
@@ -36,8 +36,13 @@
    inferred from the resume.
 9. **A salary floor never hides unstated salaries.** Same-currency jobs below the floor
    are excluded; missing or non-comparable salaries return in `items_without_salary`.
-10. **M4 returns the final 20 results.** A vector store waits for the Postgres + pgvector
-    migration; SQLite BLOBs and in-memory numpy are enough for the demo corpus.
+10. **M4 returns up to 30 results.** Target 20 salary-known + 10 salary-unstated,
+    backfilling unused slots from the other list. Scores blend 0.7 × LLM fit with
+    0.3 × retrieval.
+11. **Rerank cache keys include the model.** `prompt_version` is
+    `rerank-v1@<llm_rerank_model>`; changing the model or prompt must change the string.
+    A vector store waits for the Postgres + pgvector migration; SQLite BLOBs and
+    in-memory numpy are enough for the demo corpus.
 
 ## Open questions
 

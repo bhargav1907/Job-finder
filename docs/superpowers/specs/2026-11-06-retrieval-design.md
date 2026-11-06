@@ -49,7 +49,8 @@ Success: a student's resume plus optional filters returns the sensible jobs in t
 - The app is a demo: 100 seed jobs, no auth, no live feeds.
 - Hard filters apply only when explicitly supplied in the request. The server never
   applies the resume's own preferences as filters.
-- `top_k` candidate default is 40; M4 will return the final 20.
+- `top_k` candidate default is 40; M4 returns up to 30 final results, targeting 20
+  salary-known + 10 salary-unstated and backfilling unused slots from the other list.
 
 ## Approaches considered
 
@@ -110,7 +111,8 @@ Responses:
 - `matched_skills: list[str]` — sorted canonical-skill overlap.
 
 `items` and `items_without_salary` are each capped at `limit` independently. M4 merges
-them when it consumes the candidate pool.
+the two lists, reranks the merged pool, and re-partitions it by salary availability
+before selecting the final results.
 
 ### Salary behavior
 
