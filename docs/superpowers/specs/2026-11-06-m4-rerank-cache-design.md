@@ -25,6 +25,7 @@ bucket never leaves the result set half empty.
 - Keep the endpoint useful when the reranker fails: retry once, degrade per item.
 - Log Ollama prompt and completion token counts on every call.
 - Preserve deterministic retrieval: `services/retrieval.py` stays LLM-free.
+- Seed 3–5 jobs without salary so the unstated list is visible and testable in the demo.
 
 ## Non-goals
 
@@ -111,10 +112,17 @@ results. `total` and `without_salary_total` are recomputed from that partition a
 candidate counts, not the M3 retrieval-bucket counts.
 
 Known limitation: with no `salary_min`, M3 caps the mixed candidate pool at 40 before
-M4 partitions it, so a future corpus with many unstated-salary jobs could have too few
-of them in the pool to fill the target. The committed 100-job corpus has complete INR
-salaries on every job, so this does not occur today; partitioning inside retrieval is
-out of scope.
+M4 partitions it, so a corpus with many unstated-salary jobs could have too few of them
+in the pool to fill the target. The committed corpus currently has complete INR
+salaries on every job; M4 adds 3–5 jobs without salary so the second list is demoable.
+Partitioning inside retrieval is out of scope.
+
+### Seed data
+
+Add 3–5 jobs to `data/seed_jobs.json` with no `salary_min` or `salary_max`, spread
+across at least two role families and locations, with plausible junior-to-mid titles
+and skills so they can rank. Keep fingerprints and external ids unique; ingestion stays
+idempotent. Exact jobs are left to the builder.
 
 ### Scoring
 
@@ -232,6 +240,8 @@ Unchanged: `top_k = 40` (retrieval pool), `rerank_batch_size = 10`,
   backfill in both directions, degraded score.
 - API: new fields, statuses, default limit 30, 20/10 target split, backfill, 404/422,
   filters, and partitioning when no salary filter is present.
+- Seed data: ingestion loads the new no-salary jobs, and they appear in
+  `items_without_salary` under the backfill rule.
 - Logging: `caplog` captures the token counts from a fake Ollama response.
 - Existing M3 tests change only where the contract changed (default limit, score
   meaning). No test is deleted or weakened; retrieval service tests stay as they are.
@@ -260,3 +270,4 @@ debugging and UI honesty; M5 decides how to present them.
   with backfill.
 - M3 spec lines 52 and 112, noting the flexible-30 decision supersedes "final 20".
 - `backend/env.example` with the new settings.
+- `data/seed_jobs.json`: 3–5 jobs without salary bounds.
