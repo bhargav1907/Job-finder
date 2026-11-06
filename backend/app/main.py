@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -13,6 +14,9 @@ async def lifespan(_: FastAPI):
     init_db()
     yield
 
+
+# Surface llm_call token logs and other app INFO lines under uvicorn.
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(title="FLA Job Finder", version="0.1.0", lifespan=lifespan)
 
