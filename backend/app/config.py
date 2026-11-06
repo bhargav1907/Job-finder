@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     embedding_model: str = "BAAI/bge-small-en-v1.5"
     top_k: int = 40
     rerank_batch_size: int = 10
+    final_top_k: int = 30
+    unstated_target_share: float = 0.3333
+    rerank_llm_weight: float = 0.7
 
 
 @lru_cache

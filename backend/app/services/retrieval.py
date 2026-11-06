@@ -80,7 +80,7 @@ def retrieve_jobs(
 
         if filters.salary_min is None:
             paid.append(candidate)
-        elif _salary_is_unknown(job, resume_currency):
+        elif salary_is_unknown(job, resume_currency):
             unknown.append(candidate)
         elif job.salary_max >= filters.salary_min:
             paid.append(candidate)
@@ -95,7 +95,7 @@ def retrieve_jobs(
     )
 
 
-def _salary_is_unknown(job: Job, currency: str) -> bool:
+def salary_is_unknown(job: Job, currency: str) -> bool:
     return (
         job.salary_min is None
         or job.salary_max is None
