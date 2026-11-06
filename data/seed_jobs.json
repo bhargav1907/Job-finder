@@ -1398,5 +1398,65 @@
     "salary_max": 6949869,
     "currency": "INR",
     "posted_at": "2026-09-09T16:44:52.741161+00:00"
+  },
+  {
+    "id": "demo-101",
+    "source": "demo",
+    "title": "Junior Data Scientist",
+    "company": "Sprout Analytics",
+    "location": "Bengaluru, India",
+    "remote": false,
+    "description": "Sprout Analytics is hiring a Junior Data Scientist for the Insights team in Bengaluru, India. You will clean and explore customer datasets, build baseline models, and turn findings into dashboards the product team can act on.\n\nRequirements:\n- 1+ years of experience with python and pandas\n- Working knowledge of scikit-learn, sql, and statistics\n- Comfort explaining analysis to non-technical partners\n\nNice to have: matplotlib, airflow.\n\nHybrid role, three days a week in office.",
+    "url": "https://demo.example/jobs/junior-data-scientist-sprout-analytics-101",
+    "currency": "INR",
+    "posted_at": "2026-10-30T09:15:00+00:00"
+  },
+  {
+    "id": "demo-102",
+    "source": "demo",
+    "title": "Data Analyst",
+    "company": "Indigo Retail",
+    "location": "Hyderabad, India",
+    "remote": false,
+    "description": "Indigo Retail is hiring a Data Analyst for the Merchandising team in Hyderabad, India. You will write sql against the warehouse, automate recurring reports, and partner with category managers on assortment decisions.\n\nRequirements:\n- 1+ years of experience with sql and python\n- Strong spreadsheet skills and attention to detail\n- Ability to present findings clearly to business stakeholders\n\nNice to have: tableau, dbt.\n\nHybrid role, three days a week in office.",
+    "url": "https://demo.example/jobs/data-analyst-indigo-retail-102",
+    "currency": "INR",
+    "posted_at": "2026-10-28T11:40:00+00:00"
+  },
+  {
+    "id": "demo-103",
+    "source": "demo",
+    "title": "Machine Learning Intern",
+    "company": "Lumen Health",
+    "location": "Remote, India",
+    "remote": true,
+    "description": "Lumen Health is hiring a Machine Learning Intern to support the Clinical NLP team. You will prepare text datasets, fine-tune small models, and evaluate outputs against clinician-reviewed labels.\n\nRequirements:\n- Hands-on coursework or projects with python and pytorch\n- Familiarity with nlp fundamentals such as tokenization and embeddings\n- Curiosity and clear written communication\n\nNice to have: huggingface, pandas.\n\nFully remote within India.",
+    "url": "https://demo.example/jobs/machine-learning-intern-lumen-health-103",
+    "currency": "INR",
+    "posted_at": "2026-11-02T08:05:00+00:00"
+  },
+  {
+    "id": "demo-104",
+    "source": "demo",
+    "title": "Junior AI Engineer",
+    "company": "Kite Logistics",
+    "location": "Pune, India",
+    "remote": false,
+    "description": "Kite Logistics is hiring a Junior AI Engineer for the Automation team in Pune, India. You will build retrieval pipelines, wire them into fastapi services, and help ship internal copilots for operations teams.\n\nRequirements:\n- 1+ years of experience with python\n- Working knowledge of rag, vector search, and apis\n- Comfort with docker and debugging in production-like environments\n\nNice to have: langchain, postgresql.\n\nHybrid role, three days a week in office.",
+    "url": "https://demo.example/jobs/junior-ai-engineer-kite-logistics-104",
+    "currency": "INR",
+    "posted_at": "2026-10-26T14:20:00+00:00"
+  },
+  {
+    "id": "demo-105",
+    "source": "demo",
+    "title": "Product Analytics Associate",
+    "company": "Harrow EdTech",
+    "location": "Chennai, India",
+    "remote": false,
+    "description": "Harrow EdTech is hiring a Product Analytics Associate for the Learning team in Chennai, India. You will define product metrics, run experiments with the product team, and turn event data into recommendations for the roadmap.\n\nRequirements:\n- 1+ years of experience with sql and python\n- Basic understanding of experimentation and funnel analysis\n- Strong communication and a collaborative mindset\n\nNice to have: amplitude, streamlit.\n\nHybrid role, three days a week in office.",
+    "url": "https://demo.example/jobs/product-analytics-associate-harrow-edtech-105",
+    "currency": "INR",
+    "posted_at": "2026-11-03T10:00:00+00:00"
   }
 ]
