@@ -46,8 +46,9 @@
 12. **`data/boards.json` is the only live board list.** Adapters never invent a host;
     Darwinbox boards must match `<tenant>.darwinbox.(in|com)`.
 13. **Live ingest is CLI-only** (`python -m app.cli ingest --live`). API requests never fetch.
-14. **Jobs are identified by `(source, external_id)`**; fingerprint dedupes the same job
-    across sources and covers rows with no external id.
+14. **Jobs are identified by `(source, external_id)`**; adapters namespace the provider's
+    id with the board (`softobiz:7`) because ATS ids repeat across tenants. Fingerprint
+    dedupes the same job across sources and covers rows with no external id.
 15. **No posting lifecycle yet.** `last_seen_at` / `closed_at` need a schema change, so a
     vanished live posting stays in the DB until that is approved.
 16. **Live salaries stay unstated.** Adapters do not guess currency or period; structured
