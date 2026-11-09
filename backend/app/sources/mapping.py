@@ -79,7 +79,7 @@ def html_to_text(value: str, unescape_times: int = 1) -> str:
 
 
 def parse_iso_datetime(value: str | None) -> datetime | None:
-    if not value:
+    if not isinstance(value, str) or not value:
         return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))

@@ -62,6 +62,19 @@ def test_two_boards_with_the_same_raw_id_stay_distinct():
     ]
 
 
+def test_numeric_timestamp_does_not_abort_the_board():
+    payload = [dict(PAYLOAD[0], publishedOn=1790812800)]
+    source = KekaSource(
+        [Board("keka", "softobiz", "Softobiz")],
+        client=httpx.Client(
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+        ),
+    )
+    jobs = source.fetch(JobQuery())
+    assert len(jobs) == 1
+    assert jobs[0].posted_at is None
+
+
 def test_keka_posting_without_title_is_skipped():
     payload = [{"id": 8, "title": "", "jobLocations": []}]
     source = KekaSource(

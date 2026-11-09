@@ -32,6 +32,11 @@ def test_parse_iso_datetime_normalizes_to_utc():
     assert parse_iso_datetime(None) is None
 
 
+def test_parse_iso_datetime_ignores_non_strings():
+    assert parse_iso_datetime(1790812800) is None
+    assert parse_iso_datetime({"at": "2026-10-01"}) is None
+
+
 def test_parse_epoch_seconds():
     assert parse_epoch_seconds(1790812800) == datetime(2026, 10, 1, tzinfo=timezone.utc)
     assert parse_epoch_seconds(None) is None

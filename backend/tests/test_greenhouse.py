@@ -55,6 +55,17 @@ def test_one_failing_board_does_not_stop_the_others():
     assert [job.company for job in source.fetch(JobQuery())] == ["Quince"]
 
 
+def test_numeric_location_name_is_kept_as_text():
+    payload = {"jobs": [dict(PAYLOAD["jobs"][0], location={"name": 123})]}
+    source = GreenhouseSource(
+        [Board("greenhouse", "quince", "Quince")],
+        client=httpx.Client(
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+        ),
+    )
+    assert source.fetch(JobQuery())[0].location == "123"
+
+
 def test_posting_without_id_or_title_is_skipped():
     payload = {"jobs": [{"id": 1, "title": "", "location": {"name": ""}}, {"title": "No id"}]}
     source = GreenhouseSource(
