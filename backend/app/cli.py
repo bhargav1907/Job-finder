@@ -2,6 +2,8 @@
 
 import argparse
 import json
+import logging
+from collections.abc import Sequence
 from pathlib import Path
 
 from sqlmodel import Session
@@ -10,18 +12,32 @@ from .config import get_settings
 from .db import engine, init_db
 from .services.ingest import ingest_raw
 from .services.resumes import reembed_resumes
-from .sources.base import JobQuery
+from .sources.base import JobQuery, JobSource, RawJob
 from .sources.boards import load_boards
 from .sources.registry import build_sources
 from .sources.seed import SeedSource
+
+logger = logging.getLogger(__name__)
+
+
+def fetch_live(sources: Sequence[JobSource]) -> list[RawJob]:
+    """Collect every configured board, but fail loudly if all of them came back empty."""
+    raw_jobs: list[RawJob] = []
+    for source in sources:
+        fetched = source.fetch(JobQuery())
+        if not fetched:
+            logger.warning("cli: %s returned no postings", source.name)
+        raw_jobs.extend(fetched)
+    if not raw_jobs:
+        raise SystemExit("no live postings fetched; check board availability")
+    return raw_jobs
 
 
 def cmd_ingest(args: argparse.Namespace) -> None:
     init_db()
     settings = get_settings()
     if args.live:
-        sources = build_sources(load_boards(args.boards or settings.boards_path))
-        raw_jobs = [job for source in sources for job in source.fetch(JobQuery())]
+        raw_jobs = fetch_live(build_sources(load_boards(args.boards or settings.boards_path)))
     else:
         raw_jobs = SeedSource(settings.seed_path).fetch(JobQuery())
     with Session(engine) as session:
