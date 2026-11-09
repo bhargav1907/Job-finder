@@ -50,7 +50,7 @@ def test_fetch_maps_darwinbox_posting_and_pages():
     assert job.salary_min is None
 
 
-def test_count_mismatch_rejects_only_that_board():
+def test_count_mismatch_does_not_discard_valid_postings():
     def handler(request):
         board = request.url.host.split(".")[0]
         if board == "broken":
@@ -90,6 +90,22 @@ def test_posting_without_title_is_skipped():
         ),
     )
     assert source.fetch(JobQuery()) == []
+
+
+def test_a_skipped_row_does_not_discard_valid_postings():
+    def handler(request):
+        body = json.loads(request.content)
+        if body["page"] == 1:
+            return httpx.Response(200, json=page([ROW, {"id": "bad", "title": "  "}], 2))
+        return httpx.Response(200, json=page([], 2))
+
+    source = DarwinboxSource(
+        [Board("darwinbox", "pwc.darwinbox.com", "PwC India")],
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+    assert [job.external_id for job in source.fetch(JobQuery())] == [
+        "pwc.darwinbox.com:db-1"
+    ]
 
 
 def test_endless_pagination_is_bounded():

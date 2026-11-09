@@ -107,9 +107,15 @@ class DarwinboxSource:
         else:
             raise SourceError(f"{board.board}: no empty page within {_MAX_PAGES} pages")
 
+        # An empty page is the walk's authoritative end. job_counts can drift while
+        # we page, and unusable rows are skipped on purpose, so a mismatch is a
+        # warning rather than grounds to discard a whole board's valid postings.
         if len(jobs) != total:
-            raise SourceError(
-                f"{board.board}: gathered {len(jobs)} postings, board declares {total}"
+            logger.warning(
+                "darwinbox: %s: gathered %d postings, board declares %d",
+                board.board,
+                len(jobs),
+                total,
             )
         return jobs
 
