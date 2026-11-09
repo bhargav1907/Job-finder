@@ -1,0 +1,20 @@
+[
+  {"provider": "greenhouse", "board": "quince", "company": "Quince"},
+  {"provider": "greenhouse", "board": "razorpaysoftwareprivatelimited", "company": "Razorpay"},
+  {"provider": "greenhouse", "board": "agoda", "company": "Agoda"},
+  {"provider": "greenhouse", "board": "blackduck", "company": "Black Duck Software"},
+  {"provider": "greenhouse", "board": "spacexglobal", "company": "SpaceX"},
+  {"provider": "greenhouse", "board": "pointwild", "company": "Point Wild"},
+  {"provider": "greenhouse", "board": "emergenceai", "company": "Emergence AI"},
+  {"provider": "keka", "board": "softobiz", "company": "Softobiz Technologies"},
+  {"provider": "keka", "board": "mosaicwellness", "company": "Mosaic Wellness"},
+  {"provider": "keka", "board": "eyerov", "company": "IROV"},
+  {"provider": "darwinbox", "board": "pwc.darwinbox.com", "company": "PwC India"},
+  {"provider": "darwinbox", "board": "autalenthub.darwinbox.in", "company": "AU Small Finance Bank"},
+  {"provider": "darwinbox", "board": "kotaklifeinsurance.darwinbox.in", "company": "Kotak Life Insurance"},
+  {"provider": "darwinbox", "board": "paplconnectplus.darwinbox.in", "company": "PAPL"},
+  {"provider": "darwinbox", "board": "nectar.darwinbox.in", "company": "Mahindra Logistics"},
+  {"provider": "darwinbox", "board": "oneeverest.darwinbox.in", "company": "Everest Industries"},
+  {"provider": "darwinbox", "board": "dbx.darwinbox.in", "company": "Darwinbox Digital"},
+  {"provider": "darwinbox", "board": "geppeoplecentral.darwinbox.com", "company": "GEP Worldwide"}
+]

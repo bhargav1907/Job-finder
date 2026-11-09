@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     # Storage
     database_url: str = f"sqlite:///{BACKEND_DIR / 'data' / 'jobfinder.db'}"
     seed_path: Path = PROJECT_ROOT / "data" / "seed_jobs.json"
+    boards_path: Path = PROJECT_ROOT / "data" / "boards.json"
 
     # Resume upload
     resume_max_bytes: int = 5 * 1024 * 1024
