@@ -8,7 +8,7 @@ import httpx
 from .base import JobQuery, RawJob, SourceError
 from .boards import Board
 from .http import client_scope
-from .mapping import html_to_text, parse_iso_datetime
+from .mapping import html_to_text
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +64,9 @@ class GreenhouseSource:
                     location=str(location_name or ""),
                     description=html_to_text(str(row.get("content") or "")),
                     url=str(row.get("absolute_url") or ""),
-                    posted_at=parse_iso_datetime(row.get("updated_at")),
+                    # The list endpoint exposes updated_at (last edit), not first
+                    # publication. Storing it as posted_at would make old, edited
+                    # postings look new.
                 )
             )
         return jobs

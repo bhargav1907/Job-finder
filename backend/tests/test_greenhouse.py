@@ -39,6 +39,7 @@ def test_fetch_maps_a_greenhouse_posting():
     assert job.location == "Bengaluru, India"
     assert job.description == "Build & ship"
     assert job.url == "https://boards.greenhouse.io/quince/jobs/42"
+    assert job.posted_at is None
     assert job.salary_min is None and job.salary_max is None
 
 
