@@ -11,7 +11,8 @@ USER_AGENT = "FLAJobFinder/0.1 (internal demo)"
 def default_client() -> httpx.Client:
     return httpx.Client(
         timeout=httpx.Timeout(20.0),
-        follow_redirects=True,
+        # Board responses are untrusted; these APIs answer directly on their own host.
+        follow_redirects=False,
         transport=httpx.HTTPTransport(retries=1),
         headers={"User-Agent": USER_AGENT, "Accept": "application/json"},
     )
