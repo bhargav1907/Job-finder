@@ -28,7 +28,7 @@ def test_fetch_maps_a_keka_posting():
     job = source.fetch(JobQuery())[0]
 
     assert job.source == "keka"
-    assert job.external_id == "7"
+    assert job.external_id == "softobiz:7"
     assert job.title == "Backend Developer"
     assert job.company == "Softobiz"
     assert job.location == "Pune, Maharashtra, India"
@@ -47,6 +47,19 @@ def test_malformed_keka_board_is_skipped():
         ),
     )
     assert source.fetch(JobQuery()) == []
+
+
+def test_two_boards_with_the_same_raw_id_stay_distinct():
+    source = KekaSource(
+        [Board("keka", "softobiz", "Softobiz"), Board("keka", "mosaicwellness", "Mosaic")],
+        client=httpx.Client(
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, json=PAYLOAD))
+        ),
+    )
+    assert [job.external_id for job in source.fetch(JobQuery())] == [
+        "softobiz:7",
+        "mosaicwellness:7",
+    ]
 
 
 def test_keka_posting_without_title_is_skipped():

@@ -70,16 +70,16 @@ class DarwinboxSource:
             for row in rows:
                 if not isinstance(row, dict):
                     raise SourceError(f"{board.board}: page {page}: posting is not an object")
-                external_id = str(row.get("id") or "").strip()
+                raw_id = str(row.get("id") or "").strip()
                 title = str(row.get("title") or "").strip()
-                if not external_id or not title:
+                if not raw_id or not title:
                     logger.warning(
                         "darwinbox: %s: skipping posting without id or title", board.board
                     )
                     continue
-                if external_id in seen:
+                if raw_id in seen:
                     continue
-                seen.add(external_id)
+                seen.add(raw_id)
 
                 locations = row.get("officelocations_without_area")
                 location = ""
@@ -90,12 +90,12 @@ class DarwinboxSource:
                 jobs.append(
                     RawJob(
                         source=self.name,
-                        external_id=external_id,
+                        external_id=f"{board.board}:{raw_id}",
                         title=title,
                         company=board.company,
                         location=location,
                         description=_clean_description(description),
-                        url=f"{base}/ms/candidatev2/main/careers/jobDetails/{external_id}",
+                        url=f"{base}/ms/candidatev2/main/careers/jobDetails/{raw_id}",
                         remote=(
                             row.get("is_remote") == 1
                             or "remote" in location.lower()

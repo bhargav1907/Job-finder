@@ -33,7 +33,7 @@ def test_fetch_maps_a_greenhouse_posting():
     assert len(jobs) == 1
     job = jobs[0]
     assert job.source == "greenhouse"
-    assert job.external_id == "42"
+    assert job.external_id == "quince:42"
     assert job.title == "Senior AI Engineer"
     assert job.company == "Quince"
     assert job.location == "Bengaluru, India"

@@ -31,6 +31,21 @@ def test_same_job_from_two_sources_is_deduped_by_fingerprint(session):
     assert second.inserted == 0
 
 
+def test_same_provider_with_ids_from_different_boards_inserts_both(session):
+    first = ingest_raw(
+        session,
+        [raw(source="keka", external_id="softobiz:7", company="Softobiz")],
+        embed=False,
+    )
+    second = ingest_raw(
+        session,
+        [raw(source="keka", external_id="mosaicwellness:7", company="Mosaic")],
+        embed=False,
+    )
+    assert first.inserted == 1
+    assert second.inserted == 1
+
+
 def test_blank_external_id_still_dedupes_by_fingerprint(session):
     first = ingest_raw(session, [raw(source="custom", external_id="")], embed=False)
     second = ingest_raw(session, [raw(source="custom", external_id="")], embed=False)

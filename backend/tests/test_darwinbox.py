@@ -41,7 +41,7 @@ def test_fetch_maps_darwinbox_posting_and_pages():
     assert calls == [1, 2]
     job = jobs[0]
     assert job.source == "darwinbox"
-    assert job.external_id == "db-1"
+    assert job.external_id == "pwc.darwinbox.com:db-1"
     assert job.title == "Data Analyst"
     assert job.company == "PwC India"
     assert job.location == "Mumbai, Maharashtra, India"

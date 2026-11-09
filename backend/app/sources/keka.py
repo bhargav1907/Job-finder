@@ -42,9 +42,9 @@ class KekaSource:
         for row in rows:
             if not isinstance(row, dict):
                 raise SourceError(f"{board.board}: posting is not an object")
-            external_id = str(row.get("id") or "").strip()
+            raw_id = str(row.get("id") or "").strip()
             title = str(row.get("title") or "").strip()
-            if not external_id or not title:
+            if not raw_id or not title:
                 logger.warning("keka: %s: skipping posting without id or title", board.board)
                 continue
 
@@ -61,12 +61,12 @@ class KekaSource:
             jobs.append(
                 RawJob(
                     source=self.name,
-                    external_id=external_id,
+                    external_id=f"{board.board}:{raw_id}",
                     title=title,
                     company=board.company,
                     location=location,
                     description=html_to_text(str(row.get("description") or "")),
-                    url=f"{base}/jobdetails/{external_id}",
+                    url=f"{base}/jobdetails/{raw_id}",
                     remote="remote" in location.lower() or "remote" in title.lower(),
                     posted_at=parse_iso_datetime(row.get("publishedOn")),
                 )
