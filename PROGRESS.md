@@ -5,13 +5,13 @@
 
 ## Current focus
 
-- **Last done:** M4 — rerank + cache. `lfm3:1.7b` reranks 40 candidates in validated
-  batches of 10; blended scores return up to 30 results split 20 known / 10 unstated
-  with backfill; judgments cache in `matches` by resume, job, and model-aware prompt
-  version (commits `a6599a9`..`c54fcb2`).
+- **Last done:** M4.5 — live India ATS sources. `data/boards.json` lists 18 validated
+  boards; Greenhouse, Keka, and Darwinbox adapters sit behind `JobSource`. A live
+  smoke ingest fetched 3,627 postings (Darwinbox 2,855, Greenhouse 674, Keka 98) and
+  a second run inserted 0. Research: `docs/research/india-ats-probe-2026-11-09.md`.
 - **In progress:** none.
 - **Next:** M5 — frontend.
-- **Then:** M6 tests/docs.
+- **Then:** SmartRecruiters + Freshteam adapters and an India-only board filter.
 
 ## Decisions & invariants
 
@@ -43,6 +43,15 @@
     `rerank-v1@<llm_rerank_model>`; changing the model or prompt must change the string.
     A vector store waits for the Postgres + pgvector migration; SQLite BLOBs and
     in-memory numpy are enough for the demo corpus.
+12. **`data/boards.json` is the only live board list.** Adapters never invent a host;
+    Darwinbox boards must match `<tenant>.darwinbox.(in|com)`.
+13. **Live ingest is CLI-only** (`python -m app.cli ingest --live`). API requests never fetch.
+14. **Jobs are identified by `(source, external_id)`**; fingerprint dedupes the same job
+    across sources and covers rows with no external id.
+15. **No posting lifecycle yet.** `last_seen_at` / `closed_at` need a schema change, so a
+    vanished live posting stays in the DB until that is approved.
+16. **Live salaries stay unstated.** Adapters do not guess currency or period; structured
+    pay parsing is deferred.
 
 ## Open questions
 

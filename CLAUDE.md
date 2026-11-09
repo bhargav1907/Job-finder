@@ -18,6 +18,7 @@ Backend, from `backend/` with the venv active:
 
 - `uvicorn app.main:app --reload` — API at http://localhost:8000, docs at `/docs`
 - `python -m app.cli ingest` — load seed jobs, extract fields, embed. Idempotent.
+- `python -m app.cli ingest --live` — fetch live ATS boards from `data/boards.json`.
 - `pytest` — backend tests
 
 Frontend, from `frontend/`:
