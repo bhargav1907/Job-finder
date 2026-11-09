@@ -32,6 +32,10 @@ class RawJob:
     posted_at: datetime | None = None
 
 
+class SourceError(RuntimeError):
+    """A provider returned a response we cannot trust."""
+
+
 class JobSource(Protocol):
     """Every provider implements this. Routers and services never import a provider."""
 
