@@ -55,6 +55,18 @@ def ingest_raw(session: Session, raw_jobs: list[RawJob], embed: bool = True) -> 
             continue
         seen.add(job.fingerprint)
 
+        # Provider identity survives edits to the title or URL. Fingerprint alone
+        # would re-insert the same live posting after a small upstream change.
+        if job.external_id:
+            existing = session.exec(
+                select(Job).where(
+                    Job.source == job.source, Job.external_id == job.external_id
+                )
+            ).first()
+            if existing:
+                result.skipped += 1
+                continue
+
         existing = session.exec(select(Job).where(Job.fingerprint == job.fingerprint)).first()
         if existing:
             result.skipped += 1
