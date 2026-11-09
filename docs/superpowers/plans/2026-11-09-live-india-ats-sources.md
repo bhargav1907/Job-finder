@@ -27,7 +27,7 @@
 1. **One board fails (404, timeout, malformed JSON):** the other boards still ingest and the run exits successfully. Pinned in Tasks 3–5.
 2. **A posting is missing `id` or `title`:** it is skipped, not an exception. Pinned in Tasks 3–5.
 3. **A posting is edited upstream (same id, new title):** re-ingest does not insert a duplicate. Pinned in Task 6.
-4. **Darwinbox pagination never empties or declares a different total:** the walk is bounded and only that board is rejected. Pinned in Task 5.
+4. **Darwinbox pagination never empties or declares a different total:** the walk is bounded; a drifting total is a warning, never a reason to discard valid postings. Pinned in Task 5.
 5. **A live posting has no salary:** it is stored as unstated (`None`), never 0 and never a guessed currency/period. Pinned in Tasks 3–5.
 
 ---
@@ -285,7 +285,7 @@ def test_fetch_maps_a_greenhouse_posting():
     assert len(jobs) == 1
     job = jobs[0]
     assert job.source == "greenhouse"
-    assert job.external_id == "42"
+    assert job.external_id == "quince:42"
     assert job.title == "Senior AI Engineer"
     assert job.company == "Quince"
     assert job.location == "Bengaluru, India"
@@ -326,12 +326,13 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'app.sources.http'`.
 Greenhouse endpoint: `GET https://boards-api.greenhouse.io/v1/boards/{board}/jobs` with `content=true&pay_transparency=true`.
 
 Mapping rules:
-- `external_id = str(row["id"])`; skip when id or title is blank.
+- `raw_id = str(row["id"])`; skip when id or title is blank.
+- `external_id = f"{board.board}:{raw_id}"` — ATS ids repeat across boards.
 - `company = board.company`.
-- `location = row.get("location", {}).get("name") or ""`.
+- `location = str(row.get("location", {}).get("name") or "")`.
 - `description = html_to_text(row.get("content") or "")`.
 - `url = row.get("absolute_url") or ""`.
-- `posted_at = parse_iso_datetime(row.get("updated_at"))`.
+- Leave `posted_at` unset: the list endpoint exposes `updated_at` (last edit), not first publication.
 - `salary_min`, `salary_max` stay `None`; `currency` stays the `RawJob` default.
 - A non-list `jobs` value raises `SourceError`; `fetch` logs a warning per failed board and continues. Add `SourceError(RuntimeError)` to `backend/app/sources/base.py`.
 
@@ -395,7 +396,7 @@ def test_fetch_maps_a_keka_posting():
     job = source.fetch(JobQuery())[0]
 
     assert job.source == "keka"
-    assert job.external_id == "7"
+    assert job.external_id == "softobiz:7"
     assert job.title == "Backend Developer"
     assert job.company == "Softobiz"
     assert job.location == "Pune, Maharashtra, India"
@@ -431,11 +432,12 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'app.sources.keka'`.
 Keka endpoint: `GET https://{board}.keka.com/careers/api/jobs/default/active`. The response is a bare JSON list; anything else raises `SourceError`.
 
 Mapping rules:
-- `external_id = str(row["id"])`; skip when id or title is blank.
+- `raw_id = str(row["id"])`; skip when id or title is blank.
+- `external_id = f"{board.board}:{raw_id}"` — Keka ids repeat across tenants.
 - `company = board.company`. Do not make the extra `careerportalinfo` request.
 - `location = join_nonempty(city, state, countryName)` from the first `jobLocations` entry.
 - `description = html_to_text(row.get("description") or "")`.
-- `url = f"https://{board.board}.keka.com/careers/jobdetails/{external_id}"`.
+- `url = f"https://{board.board}.keka.com/careers/jobdetails/{raw_id}"`.
 - `remote = "remote" in location.lower() or "remote" in title.lower()`.
 - `posted_at = parse_iso_datetime(row.get("publishedOn"))`.
 - Salary fields stay `None`.
@@ -511,7 +513,7 @@ def test_fetch_maps_darwinbox_posting_and_pages():
     assert calls == [1, 2]
     job = jobs[0]
     assert job.source == "darwinbox"
-    assert job.external_id == "db-1"
+    assert job.external_id == "pwc.darwinbox.com:db-1"
     assert job.title == "Data Analyst"
     assert job.company == "PwC India"
     assert job.location == "Mumbai, Maharashtra, India"
@@ -520,7 +522,7 @@ def test_fetch_maps_darwinbox_posting_and_pages():
     assert job.salary_min is None
 
 
-def test_count_mismatch_rejects_only_that_board():
+def test_count_mismatch_does_not_discard_valid_postings():
     def handler(request):
         board = request.url.host.split(".")[0]
         if board == "broken":
@@ -588,8 +590,9 @@ Rules:
 - Validate the host against `^[a-z0-9][a-z0-9-]*\.darwinbox\.(?:in|com)$` before any request; a bad host raises `SourceError` inside the per-board try block.
 - Require `status == "success"` and an integer `job_counts`, else `SourceError`.
 - Page from 1 until `data` is empty; stop with `SourceError` after 50 pages (5,000 postings).
-- Deduplicate by posting id, then require the gathered count to equal the first page's `job_counts`; a mismatch raises `SourceError`.
+- Deduplicate by posting id, then compare the gathered count with the first page's `job_counts`; log a warning on mismatch rather than discarding the board.
 - Skip rows with blank id or title.
+- `external_id = f"{board.board}:{raw_id}"`; keep the raw id for `seen` and the detail URL.
 - `location = normalize_ws(first location.replace("\r", ""))`.
 - `description`: if `html_to_text(jd, unescape_times=1)` still starts with `&lt;` or contains `&amp;lt;`, use `unescape_times=2`; otherwise use the once-decoded text. This covers the once- and twice-encoded bodies measured in the probe.
 - `remote = row.get("is_remote") == 1 or "remote" in location.lower() or "remote" in title.lower()`.
@@ -600,7 +603,7 @@ Rules:
 - [ ] **Step 4: Run the tests to verify they pass**
 
 Run: `cd backend && pytest tests/test_darwinbox.py -q`
-Expected: `5 passed`.
+Expected: `6 passed`.
 
 - [ ] **Step 5: Commit**
 
@@ -619,7 +622,7 @@ git commit -m "feat(sources): add Darwinbox board adapter"
 
 **Interfaces:**
 - Consumes: `ingest_raw(session: Session, raw_jobs: list[RawJob], embed: bool = True) -> IngestResult`.
-- Produces: no signature change. Behaviour: an existing `(source, external_id)` pair is skipped before the fingerprint check; blank `external_id` falls back to fingerprint only.
+- Produces: no signature change. Behaviour: an existing `(source, external_id)` pair is skipped before the fingerprint check; blank `external_id` falls back to fingerprint only. Adapters pass board-scoped ids (`<board>:<raw id>`) because ATS ids repeat across tenants.
 
 - [ ] **Step 1: Write the failing tests**
 
