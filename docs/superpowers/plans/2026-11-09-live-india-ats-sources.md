@@ -525,7 +525,10 @@ def test_count_mismatch_rejects_only_that_board():
         board = request.url.host.split(".")[0]
         if board == "broken":
             return httpx.Response(200, json=page([], 99))
-        return httpx.Response(200, json=page([ROW], 1))
+        body = json.loads(request.content)
+        if body["page"] == 1:
+            return httpx.Response(200, json=page([ROW], 1))
+        return httpx.Response(200, json=page([], 1))
 
     source = DarwinboxSource(
         [Board("darwinbox", "broken.darwinbox.com", "Broken"),
