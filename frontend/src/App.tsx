@@ -159,7 +159,7 @@ export function App() {
         onReplace={replaceResume}
       />
 
-      <main className="flex-1">
+      <main className="flex flex-1 flex-col">
         {resumeId === null ? (
           <UploadView
             onUploaded={handleUploaded}

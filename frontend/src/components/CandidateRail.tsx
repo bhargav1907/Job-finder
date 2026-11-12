@@ -1,4 +1,4 @@
-import { formatRoleFamily, formatYears } from '../lib/format'
+import { formatYears } from '../lib/format'
 import type { FilterState } from '../lib/filters'
 import type { Resume } from '../types'
 import { FilterPanel } from './FilterPanel'
@@ -50,12 +50,6 @@ export function CandidateRail({
         <div className="flex justify-between gap-3">
           <dt className="text-faint">Level</dt>
           <dd className="capitalize">{profile.seniority}</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-faint">Field</dt>
-          <dd className="text-right">
-            {formatRoleFamily(profile.target_roles[0] ?? '') || 'Not stated'}
-          </dd>
         </div>
       </dl>
 

@@ -94,7 +94,7 @@ export function UploadView({ onUploaded, corpusIsEmpty }: UploadViewProps) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 py-10 sm:px-6 sm:py-14">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-10 sm:justify-center sm:px-6 sm:py-14">
       <header className="max-w-xl">
         <h1 className="font-display text-4xl leading-[1.05] tracking-[-0.02em] sm:text-5xl">
           Open your candidate file

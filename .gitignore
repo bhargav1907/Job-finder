@@ -19,6 +19,9 @@ KNOWLEDGE-TRANSFER.md
 backend/data/
 backend/.venv/
 frontend/.vite/
+frontend/screens/
+frontend/test-results/
+frontend/playwright-report/
 
 # Node
 node_modules/

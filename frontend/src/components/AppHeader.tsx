@@ -30,11 +30,11 @@ export function AppHeader({
 
       <div className="flex shrink-0 items-center gap-3 sm:gap-4">
         <span
-          className="hidden items-center gap-1.5 text-[11px] text-muted md:inline-flex"
+          className="inline-flex items-center gap-1.5 text-[11px] text-muted"
           title="Seed listings from data/seed_jobs.json. Not live postings."
         >
           <span aria-hidden="true" className="h-1.5 w-1.5 bg-rust" />
-          Demo data
+          Demo<span className="hidden sm:inline"> data</span>
         </span>
 
         {resume ? (
@@ -56,7 +56,7 @@ export function AppHeader({
           <button
             type="button"
             aria-pressed={theme === 'dark'}
-            aria-label="Use the dark theme"
+            aria-label="Night theme"
             onClick={() => onToggleTheme('dark')}
             className={`flex items-center gap-1.5 px-2 py-1 text-[11px] transition-colors ${
               theme === 'dark'
@@ -70,7 +70,7 @@ export function AppHeader({
           <button
             type="button"
             aria-pressed={theme === 'light'}
-            aria-label="Use the light theme"
+            aria-label="Day theme"
             onClick={() => onToggleTheme('light')}
             className={`flex items-center gap-1.5 px-2 py-1 text-[11px] transition-colors ${
               theme === 'light'

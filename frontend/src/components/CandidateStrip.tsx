@@ -2,6 +2,7 @@ import { formatYears } from '../lib/format'
 import type { FilterState } from '../lib/filters'
 import type { Resume } from '../types'
 import { FilterPanel } from './FilterPanel'
+import { ChevronDownIcon } from './icons'
 
 interface CandidateStripProps {
   resume: Resume
@@ -33,7 +34,8 @@ export function CandidateStrip({
       </div>
 
       <details className="mt-2">
-        <summary className="cursor-pointer text-[12px] text-muted transition-colors hover:text-ink">
+        <summary className="candidate-refine-summary cursor-pointer text-[12px] text-muted transition-colors hover:text-ink">
+          <ChevronDownIcon className="h-3.5 w-3.5" />
           Refine
           {activeCount > 0 ? (
             <span className="ml-1.5 text-faint">({activeCount})</span>

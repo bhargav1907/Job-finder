@@ -11,7 +11,7 @@
   --color-line-strong: #45574a;
   --color-ink: #e8e0cb;
   --color-muted: #9da896;
-  --color-faint: #6f7c6c;
+  --color-faint: #899681;
   --color-brass: #c9a55c;
   --color-brass-strong: #e2c079;
   --color-rust: #c46f4e;
@@ -31,8 +31,8 @@
   --color-line: #d2c6ac;
   --color-line-strong: #b5a78a;
   --color-ink: #1c231e;
-  --color-muted: #646e5e;
-  --color-faint: #8a9281;
+  --color-muted: #4f594a;
+  --color-faint: #5a6453;
   --color-brass: #8a671f;
   --color-brass-strong: #6f5215;
   --color-rust: #9e4b30;
@@ -187,6 +187,25 @@ a {
 .upload-button:hover {
   background: var(--color-brass);
   color: var(--color-desk);
+}
+
+.candidate-refine-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  list-style: none;
+}
+
+.candidate-refine-summary::-webkit-details-marker {
+  display: none;
+}
+
+.candidate-refine-summary svg {
+  transition: transform 120ms ease;
+}
+
+details[open] > .candidate-refine-summary svg {
+  transform: rotate(180deg);
 }
 
 .workspace {
