@@ -7,8 +7,10 @@
 
 - **Last done:** M5 — frontend. Placement-desk dossier: dark default + light, three panes
   ≥1280px, candidate strip at 768–1279, list↔detail below. URL carries `resume`/`job`.
-  Verified: `npm --prefix frontend test` (38), `build`, `test:visual` (4, axe clean), and
+  Verified: `npm --prefix frontend test` (39), `build`, `test:visual` (4, axe clean), and
   a real recommendations call → 200, 30 items, rerank unavailable without Ollama.
+  Fresh whole-branch review: no Critical findings; one Important fix (retry on a failed
+  candidate-file load).
 - **In progress:** none.
 - **Next:** M6 — SmartRecruiters + Freshteam adapters and an India-only board filter.
 - **Then:** Postgres + pgvector migration.
