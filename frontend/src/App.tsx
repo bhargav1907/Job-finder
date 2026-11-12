@@ -1,11 +1,106 @@
+import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { ApiError, getResume } from './api'
+import { AppHeader } from './components/AppHeader'
+import { clearResumeId, getStoredResumeId } from './lib/session'
+import { applyTheme, resolveInitialTheme, saveTheme } from './lib/theme'
+import type { Theme } from './lib/theme'
+import { useUrlSelection } from './lib/useUrlState'
+
 export function App() {
+  const [theme, setTheme] = useState<Theme>(() => resolveInitialTheme())
+  const [selection, setSelection] = useUrlSelection()
+
+  useEffect(() => {
+    applyTheme(theme)
+  }, [theme])
+
+  function changeTheme(next: Theme) {
+    setTheme(next)
+    saveTheme(next)
+    applyTheme(next)
+  }
+
+  // A returning visitor has an id in localStorage but no query string.
+  useEffect(() => {
+    if (selection.resumeId !== null) return
+    const stored = getStoredResumeId()
+    if (stored === null) return
+    setSelection({ resumeId: stored, jobId: selection.jobId }, 'replace')
+  }, [selection.resumeId, selection.jobId, setSelection])
+
+  const resumeId = selection.resumeId
+  const resumeQuery = useQuery({
+    queryKey: ['resume', resumeId],
+    queryFn: () => getResume(resumeId as number),
+    enabled: resumeId !== null,
+    retry: 1,
+  })
+
+  useEffect(() => {
+    const error = resumeQuery.error
+    if (error instanceof ApiError && error.status === 404) {
+      clearResumeId()
+      setSelection({ resumeId: null, jobId: null }, 'replace')
+    }
+  }, [resumeQuery.error, setSelection])
+
+  const resume = resumeId !== null ? (resumeQuery.data ?? null) : null
+
+  function replaceResume() {
+    clearResumeId()
+    setSelection({ resumeId: null, jobId: null }, 'replace')
+  }
+
   return (
-    <main className="grid min-h-screen place-items-center bg-desk p-8 text-ink">
-      <div className="max-w-md border border-line bg-raised p-8">
-        <p className="font-display text-3xl">FLA Placement Office</p>
-        <p className="mt-2 text-muted">Preparing the candidate files.</p>
-      </div>
-    </main>
+    <div className="flex min-h-screen flex-col bg-desk text-ink">
+      <AppHeader
+        resume={resume}
+        theme={theme}
+        onToggleTheme={changeTheme}
+        onReplace={replaceResume}
+      />
+
+      <main className="mx-auto flex w-full max-w-[1600px] flex-1 items-start justify-center px-4 py-10 sm:px-6">
+        <div className="w-full max-w-xl border border-line bg-raised px-6 py-8">
+          {resumeId !== null && resumeQuery.isPending ? (
+            <p className="text-muted">Opening your candidate file…</p>
+          ) : null}
+
+          {resumeQuery.isError &&
+          !(resumeQuery.error instanceof ApiError) ? (
+            <p role="alert" className="text-rust">
+              Could not open your candidate file. Please retry.
+            </p>
+          ) : null}
+
+          {resumeQuery.isError &&
+          resumeQuery.error instanceof ApiError &&
+          resumeQuery.error.status !== 404 ? (
+            <p role="alert" className="text-rust">
+              {resumeQuery.error.detail}
+            </p>
+          ) : null}
+
+          {resume ? (
+            <div>
+              <p className="font-display text-3xl leading-tight">
+                {resume.profile.name}
+              </p>
+              <p className="mt-2 text-muted">{resume.filename}</p>
+            </div>
+          ) : null}
+
+          {resumeId === null && !resumeQuery.isError ? (
+            <p className="text-muted">Frontend shell ready.</p>
+          ) : null}
+        </div>
+      </main>
+
+      <footer className="border-t border-line px-4 py-3 text-[11px] text-faint sm:px-6">
+        Seed listings from data/seed_jobs.json. Not live postings.
+      </footer>
+    </div>
   )
 }
 
