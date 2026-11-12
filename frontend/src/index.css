@@ -136,3 +136,56 @@ a {
     scroll-behavior: auto !important;
   }
 }
+
+.upload-folder {
+  position: relative;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-raised);
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.upload-folder::before {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: 22px;
+  width: 118px;
+  height: 12px;
+  border: 1px solid var(--color-line-strong);
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+  background: var(--color-raised);
+  transition: border-color 160ms ease;
+}
+
+.upload-folder.is-dragging {
+  border-color: var(--color-brass-strong);
+  background: var(--color-sunken);
+}
+
+.upload-folder.is-dragging::before {
+  border-color: var(--color-brass-strong);
+  background: var(--color-sunken);
+}
+
+.upload-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--color-brass);
+  padding: 0.55rem 0.9rem;
+  color: var(--color-brass-strong);
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.upload-button:hover {
+  background: var(--color-brass);
+  color: var(--color-desk);
+}
+
