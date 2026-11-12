@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ApiError, getJobsCount, getResume } from './api'
 import { AppHeader } from './components/AppHeader'
+import { CandidateRail } from './components/CandidateRail'
 import { UploadView } from './components/UploadView'
+import {
+  activeFilterCount,
+  EMPTY_FILTERS,
+  type FilterState,
+} from './lib/filters'
 import { clearResumeId, getStoredResumeId, saveResumeId } from './lib/session'
 import { applyTheme, resolveInitialTheme, saveTheme } from './lib/theme'
 import type { Theme } from './lib/theme'
@@ -13,6 +19,8 @@ export function App() {
   const queryClient = useQueryClient()
   const [theme, setTheme] = useState<Theme>(() => resolveInitialTheme())
   const [selection, setSelection] = useUrlSelection()
+  const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
+  const activeCount = activeFilterCount(filters)
 
   useEffect(() => {
     applyTheme(theme)
@@ -86,8 +94,39 @@ export function App() {
             onUploaded={handleUploaded}
             corpusIsEmpty={corpusQuery.data === 0}
           />
+        ) : resume ? (
+          <div className="workspace">
+            <CandidateRail
+              resume={resume}
+              filters={filters}
+              onChange={setFilters}
+              onClear={() => setFilters(EMPTY_FILTERS)}
+              activeCount={activeCount}
+            />
+
+            <section
+              className="shortlist-pane border-r border-line px-5 py-6"
+              aria-labelledby="shortlist-heading"
+            >
+              <h1
+                id="shortlist-heading"
+                className="font-display text-2xl leading-tight"
+              >
+                Shortlist for {resume.profile.name.split(' ')[0]}
+              </h1>
+              <p className="mt-2 text-[13px] text-muted">
+                Ranking the openings…
+              </p>
+            </section>
+
+            <section className="case-pane px-5 py-6">
+              <p className="text-[13px] text-faint">
+                Select a role from the shortlist.
+              </p>
+            </section>
+          </div>
         ) : (
-          <div className="mx-auto w-full max-w-[1600px] px-4 py-10 sm:px-6">
+          <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
             <div className="w-full max-w-xl border border-line bg-raised px-6 py-8">
               {resumeQuery.isPending ? (
                 <p className="text-muted">Opening your candidate file…</p>
@@ -106,15 +145,6 @@ export function App() {
                 <p role="alert" className="text-rust">
                   {resumeQuery.error.detail}
                 </p>
-              ) : null}
-
-              {resume ? (
-                <div>
-                  <p className="font-display text-3xl leading-tight">
-                    {resume.profile.name}
-                  </p>
-                  <p className="mt-2 text-muted">{resume.filename}</p>
-                </div>
               ) : null}
             </div>
           </div>
