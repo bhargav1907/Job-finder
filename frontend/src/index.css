@@ -1,0 +1,138 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/newsreader';
+@import '@fontsource-variable/newsreader/wght-italic.css';
+@import '@fontsource-variable/recursive/full.css';
+
+@theme {
+  --color-desk: #14201b;
+  --color-raised: #1b2a23;
+  --color-sunken: #0f1814;
+  --color-line: #2e3d34;
+  --color-line-strong: #45574a;
+  --color-ink: #e8e0cb;
+  --color-muted: #9da896;
+  --color-faint: #6f7c6c;
+  --color-brass: #c9a55c;
+  --color-brass-strong: #e2c079;
+  --color-rust: #c46f4e;
+  --color-ok: #8fae82;
+
+  --font-display: 'Newsreader Variable', 'Iowan Old Style', Georgia, serif;
+  --font-ui: 'Recursive Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-data: 'Recursive Variable', ui-monospace, SFMono-Regular, monospace;
+
+  --radius-file: 3px;
+}
+
+[data-theme='light'] {
+  --color-desk: #f2ebdc;
+  --color-raised: #fbf6ea;
+  --color-sunken: #e7decb;
+  --color-line: #d2c6ac;
+  --color-line-strong: #b5a78a;
+  --color-ink: #1c231e;
+  --color-muted: #646e5e;
+  --color-faint: #8a9281;
+  --color-brass: #8a671f;
+  --color-brass-strong: #6f5215;
+  --color-rust: #9e4b30;
+  --color-ok: #4d6a42;
+}
+
+:root {
+  color-scheme: dark;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+html {
+  background: var(--color-desk);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--color-desk);
+  color: var(--color-ink);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  font-variation-settings: 'MONO' 0, 'CASL' 0, 'CRSV' 0;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.65'/%3E%3C/svg%3E");
+  mix-blend-mode: soft-light;
+}
+
+[data-theme='light'] body::before {
+  mix-blend-mode: multiply;
+  opacity: 0.035;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: var(--color-brass-strong);
+  text-underline-offset: 3px;
+}
+
+::selection {
+  background: var(--color-brass);
+  color: var(--color-desk);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brass-strong);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
