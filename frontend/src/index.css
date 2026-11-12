@@ -398,3 +398,124 @@ a {
   background: var(--color-line);
 }
 
+.case-file {
+  max-width: 46rem;
+}
+
+.case-heading {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-faint);
+}
+
+.case-ledger > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid var(--color-line);
+  padding: 0.4rem 0;
+  font-size: 12px;
+}
+
+.case-ledger dt {
+  color: var(--color-faint);
+}
+
+.case-ledger dd {
+  margin: 0;
+  text-align: right;
+  color: var(--color-ink);
+}
+
+.case-list li {
+  position: relative;
+  padding-left: 1rem;
+  font-size: 14px;
+  color: var(--color-muted);
+}
+
+.case-list li + li {
+  margin-top: 0.4rem;
+}
+
+.case-list li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.62em;
+  width: 7px;
+  height: 1px;
+  background: var(--color-brass);
+}
+
+.fit-seal {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--color-brass);
+  border-radius: 50%;
+  color: var(--color-brass-strong);
+  transform: rotate(-6deg);
+  animation: seal-press 280ms cubic-bezier(0.2, 0.7, 0.3, 1) both;
+}
+
+.fit-seal::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid var(--color-brass);
+  border-radius: 50%;
+  opacity: 0.7;
+}
+
+.fit-seal-lg {
+  width: 86px;
+  height: 86px;
+}
+
+.fit-seal-sm {
+  width: 54px;
+  height: 54px;
+}
+
+.fit-seal-score {
+  font-family: var(--font-data);
+  font-variation-settings: 'MONO' 1, 'CASL' 0;
+  line-height: 1;
+}
+
+.fit-seal-lg .fit-seal-score {
+  font-size: 30px;
+}
+
+.fit-seal-sm .fit-seal-score {
+  font-size: 17px;
+}
+
+.fit-seal-label {
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-style: italic;
+  line-height: 1;
+}
+
+.fit-seal-sm .fit-seal-label {
+  font-size: 10px;
+}
+
+@keyframes seal-press {
+  from {
+    opacity: 0;
+    transform: rotate(-6deg) scale(1.16);
+  }
+
+  to {
+    opacity: 1;
+    transform: rotate(-6deg) scale(1);
+  }
+}
+
