@@ -1,17 +1,29 @@
 import { useEffect, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ApiError, getJobsCount, getResume } from './api'
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
+import { ApiError, getJobsCount, getRecommendations, getResume } from './api'
 import { AppHeader } from './components/AppHeader'
 import { CandidateRail } from './components/CandidateRail'
+import { CandidateStrip } from './components/CandidateStrip'
+import { JobDetail } from './components/JobDetail'
+import { JobList } from './components/JobList'
+import { StatusNote } from './components/StatusNote'
 import { UploadView } from './components/UploadView'
 import {
   activeFilterCount,
   EMPTY_FILTERS,
+  filtersToQuery,
+  serializeFilters,
   type FilterState,
 } from './lib/filters'
 import { clearResumeId, getStoredResumeId, saveResumeId } from './lib/session'
 import { applyTheme, resolveInitialTheme, saveTheme } from './lib/theme'
 import type { Theme } from './lib/theme'
+import { useDebounced } from './lib/useDebounced'
+import { useMediaQuery } from './lib/useMediaQuery'
 import { useUrlSelection } from './lib/useUrlState'
 import type { Resume } from './types'
 
@@ -20,7 +32,10 @@ export function App() {
   const [theme, setTheme] = useState<Theme>(() => resolveInitialTheme())
   const [selection, setSelection] = useUrlSelection()
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS)
+  const debouncedFilters = useDebounced(filters, 250)
   const activeCount = activeFilterCount(filters)
+  const isDesktop = useMediaQuery('(min-width: 1280px)')
+  const isWide = useMediaQuery('(min-width: 768px)')
 
   useEffect(() => {
     applyTheme(theme)
@@ -51,9 +66,17 @@ export function App() {
   const corpusQuery = useQuery({
     queryKey: ['jobs', 'count'],
     queryFn: getJobsCount,
-    enabled: resumeId === null,
     staleTime: 5 * 60_000,
     retry: 0,
+  })
+
+  const recommendationsQuery = useQuery({
+    queryKey: ['recommendations', resumeId, serializeFilters(debouncedFilters)],
+    queryFn: () =>
+      getRecommendations(resumeId as number, filtersToQuery(debouncedFilters)),
+    enabled: resumeId !== null,
+    placeholderData: keepPreviousData,
+    retry: 1,
   })
 
   useEffect(() => {
@@ -64,11 +87,48 @@ export function App() {
     }
   }, [resumeQuery.error, setSelection])
 
+  // A filtered result set can drop the role that was open.
+  useEffect(() => {
+    if (selection.resumeId === null || selection.jobId === null) return
+    const data = recommendationsQuery.data
+    if (!data) return
+    const exists = [...data.items, ...data.items_without_salary].some(
+      (item) => item.job.id === selection.jobId,
+    )
+    if (!exists) {
+      setSelection({ resumeId: selection.resumeId, jobId: null }, 'replace')
+    }
+  }, [
+    recommendationsQuery.data,
+    selection.resumeId,
+    selection.jobId,
+    setSelection,
+  ])
+
   const resume = resumeId !== null ? (resumeQuery.data ?? null) : null
+  const results = recommendationsQuery.data
+  const known = results?.items ?? []
+  const unstated = results?.items_without_salary ?? []
+  const selectedItem =
+    [...known, ...unstated].find((item) => item.job.id === selection.jobId) ??
+    null
+
+  const recommendationError = recommendationsQuery.error
+    ? recommendationsQuery.error instanceof ApiError
+      ? recommendationsQuery.error.detail
+      : 'Could not load recommendations.'
+    : null
+
+  function clearFilters() {
+    setFilters(EMPTY_FILTERS)
+  }
 
   function handleUploaded(uploaded: Resume) {
     queryClient.setQueryData(['resume', uploaded.id], uploaded)
     saveResumeId(uploaded.id)
+    setFilters(EMPTY_FILTERS)
+    queryClient.invalidateQueries({ queryKey: ['resume'] })
+    queryClient.invalidateQueries({ queryKey: ['recommendations'] })
     setSelection({ resumeId: uploaded.id, jobId: null }, 'replace')
   }
 
@@ -76,7 +136,18 @@ export function App() {
     clearResumeId()
     queryClient.removeQueries({ queryKey: ['resume'] })
     queryClient.removeQueries({ queryKey: ['recommendations'] })
+    setFilters(EMPTY_FILTERS)
     setSelection({ resumeId: null, jobId: null }, 'replace')
+  }
+
+  function selectJob(jobId: number) {
+    if (resumeId === null) return
+    setSelection({ resumeId, jobId }, 'push')
+  }
+
+  function backToShortlist() {
+    if (resumeId === null) return
+    setSelection({ resumeId, jobId: null }, 'replace')
   }
 
   return (
@@ -95,36 +166,95 @@ export function App() {
             corpusIsEmpty={corpusQuery.data === 0}
           />
         ) : resume ? (
-          <div className="workspace">
-            <CandidateRail
-              resume={resume}
-              filters={filters}
-              onChange={setFilters}
-              onClear={() => setFilters(EMPTY_FILTERS)}
-              activeCount={activeCount}
-            />
+          <>
+            {!isDesktop ? (
+              <CandidateStrip
+                resume={resume}
+                filters={filters}
+                onChange={setFilters}
+                onClear={clearFilters}
+                activeCount={activeCount}
+              />
+            ) : null}
 
-            <section
-              className="shortlist-pane border-r border-line px-5 py-6"
-              aria-labelledby="shortlist-heading"
-            >
-              <h1
-                id="shortlist-heading"
-                className="font-display text-2xl leading-tight"
+            <div className="workspace">
+              {isDesktop ? (
+                <CandidateRail
+                  resume={resume}
+                  filters={filters}
+                  onChange={setFilters}
+                  onClear={clearFilters}
+                  activeCount={activeCount}
+                />
+              ) : null}
+
+              <section
+                className={`shortlist-pane border-r border-line px-5 py-6${
+                  selectedItem && !isWide ? ' hidden' : ''
+                }`}
+                aria-labelledby="shortlist-heading"
               >
-                Shortlist for {resume.profile.name.split(' ')[0]}
-              </h1>
-              <p className="mt-2 text-[13px] text-muted">
-                Ranking the openings…
-              </p>
-            </section>
+                <h1
+                  id="shortlist-heading"
+                  className="font-display text-2xl leading-tight"
+                >
+                  Shortlist for {resume.profile.name.split(' ')[0]}
+                </h1>
 
-            <section className="case-pane px-5 py-6">
-              <p className="text-[13px] text-faint">
-                Select a role from the shortlist.
-              </p>
-            </section>
-          </div>
+                {results?.rerank_status === 'partial' ? (
+                  <div className="mt-4">
+                    <StatusNote
+                      tone="info"
+                      title="Some explanations are missing"
+                    >
+                      Some roles were ranked by retrieval only, so their fit
+                      notes are incomplete.
+                    </StatusNote>
+                  </div>
+                ) : null}
+
+                {results?.rerank_status === 'unavailable' ? (
+                  <div className="mt-4">
+                    <StatusNote tone="info" title="Explanations unavailable">
+                      The rerank model is offline. Roles are ranked by
+                      retrieval only.
+                    </StatusNote>
+                  </div>
+                ) : null}
+
+                <JobList
+                  known={known}
+                  unstated={unstated}
+                  selectedJobId={selection.jobId}
+                  onSelect={selectJob}
+                  isLoading={recommendationsQuery.isPending}
+                  error={recommendationError}
+                  onRetry={() => {
+                    void recommendationsQuery.refetch()
+                  }}
+                  onClearFilters={clearFilters}
+                  activeCount={activeCount}
+                />
+              </section>
+
+              <section
+                className={`case-pane px-5 py-6${
+                  !isWide && !selectedItem ? ' hidden' : ''
+                }`}
+              >
+                {selectedItem ? (
+                  <JobDetail
+                    item={selectedItem}
+                    onBack={!isWide ? backToShortlist : undefined}
+                  />
+                ) : (
+                  <p className="text-[13px] text-faint">
+                    Select a role from the shortlist.
+                  </p>
+                )}
+              </section>
+            </div>
+          </>
         ) : (
           <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6">
             <div className="w-full max-w-xl border border-line bg-raised px-6 py-8">
