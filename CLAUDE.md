@@ -4,7 +4,8 @@ Job finder for Forward Learning Academy students. Upload a resume, set filters
 (experience, salary, location, role), get ranked openings with a fit score,
 an explanation of why each fits, and the skills the student is missing.
 
-v1 is an internal demo: seed jobs, no auth, no live job APIs.
+v1 is an internal demo: seed jobs by default, no auth. Live ATS ingest exists but is
+CLI-only; the API never fetches at runtime.
 
 ## Commands
 
@@ -31,7 +32,8 @@ Both at once: `./scripts/dev.sh`
 ## Current status
 
 Read `PROGRESS.md` at the start of each session for the active milestone, decisions,
-and next step, and update it after each finished step.
+and next step, and update it after each finished step. Longer-term ideas live in
+`docs/FUTURE.md`.
 
 Resume parsing uses `qwen3:4b` (~3.9 GB loaded at 8K context); reranking uses
 `lfm3:1.7b`; fallback `llama3.2:3b` loads only on invalid JSON. `gemma4:12b` was tested

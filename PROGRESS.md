@@ -11,7 +11,8 @@
   a second run inserted 0. Research: `docs/research/india-ats-probe-2026-11-09.md`.
 - **In progress:** none.
 - **Next:** M5 — frontend.
-- **Then:** SmartRecruiters + Freshteam adapters and an India-only board filter.
+- **Then:** M6 — tests/docs. Source expansion and multi-country support are post-V1;
+  see `docs/FUTURE.md`.
 
 ## Decisions & invariants
 
@@ -26,7 +27,8 @@
    dedupe by content hash happens before any parse call.
 4. **Validate batch output.** A rerank response is untrusted until every requested
    `job_id` is present; small local models silently drop items.
-5. **Demo data only.** The app never fetches jobs at runtime; the UI carries the demo badge.
+5. **The API never fetches jobs at runtime.** The demo DB uses seed data; live ingest is
+   CLI-only and the UI carries the demo badge.
 6. **Tavily is the only web path**, and it is budgeted at 1,000 requests/month.
 7. **Top-level split by runtime:** `backend/` and `frontend/` (Vite app, source in
    `frontend/src/`). No root `src/` — the empty root `src/` scaffold was removed on
@@ -62,3 +64,4 @@
 
 - Update "Current focus" and add new invariants after each finished step.
 - Move completed milestone detail to the commit message and delete it here.
+- Longer-term ideas belong in `docs/FUTURE.md`; this file tracks only the active milestone.
