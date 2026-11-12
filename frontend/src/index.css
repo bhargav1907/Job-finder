@@ -299,3 +299,102 @@ a {
   pointer-events: none;
 }
 
+.job-row {
+  display: grid;
+  grid-template-columns: 2.35rem minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  width: 100%;
+  border: 0;
+  border-left: 2px solid transparent;
+  border-bottom: 1px solid var(--color-line);
+  background: transparent;
+  padding: 0.75rem 0.5rem 0.75rem 0.7rem;
+  text-align: left;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.job-row:hover {
+  background: color-mix(in srgb, var(--color-raised) 65%, transparent);
+}
+
+.job-row.is-selected {
+  border-left-color: var(--color-brass);
+  background: var(--color-raised);
+}
+
+.job-row-mark {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding-top: 0.15rem;
+}
+
+.job-row-rank {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--color-faint);
+}
+
+.job-row-score {
+  font-family: var(--font-data);
+  font-size: 13px;
+  color: var(--color-brass-strong);
+}
+
+.job-row-title {
+  display: block;
+  overflow: hidden;
+  font-family: var(--font-display);
+  font-size: 17px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-row-place,
+.job-row-pay {
+  display: block;
+  overflow: hidden;
+  margin-top: 0.2rem;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.job-row-place {
+  color: var(--color-muted);
+}
+
+.job-row-pay {
+  color: var(--color-faint);
+}
+
+.job-row-tag {
+  align-self: start;
+  border: 1px solid var(--color-line-strong);
+  padding: 0.05rem 0.3rem;
+  font-size: 10px;
+  color: var(--color-muted);
+}
+
+.skeleton-row {
+  display: flex;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--color-line);
+  padding: 0.85rem 0.5rem 0.85rem 0.7rem;
+}
+
+.skeleton-mark {
+  width: 2.1rem;
+  height: 0.7rem;
+  background: var(--color-line);
+}
+
+.skeleton-bar {
+  display: block;
+  height: 0.7rem;
+  background: var(--color-line);
+}
+
