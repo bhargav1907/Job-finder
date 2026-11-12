@@ -276,6 +276,20 @@ export function App() {
                   {resumeQuery.error.detail}
                 </p>
               ) : null}
+
+              {resumeQuery.isError &&
+              !(
+                resumeQuery.error instanceof ApiError &&
+                resumeQuery.error.status === 404
+              ) ? (
+                <button
+                  type="button"
+                  onClick={() => resumeQuery.refetch()}
+                  className="mt-3 border border-line-strong px-3 py-1.5 text-[12px] text-ink transition-colors hover:border-brass hover:text-brass-strong"
+                >
+                  Retry
+                </button>
+              ) : null}
             </div>
           </div>
         )}

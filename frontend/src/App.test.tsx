@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { App } from './App'
-import { getRecommendations, getResume } from './api'
+import { ApiError, getJobsCount, getRecommendations, getResume } from './api'
 import { makeItem, makeResume } from './test/fixtures'
 
 vi.mock('./api', async (orig) => ({
@@ -27,7 +27,7 @@ const EMPTY_RESULTS = {
 
 function renderApp() {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false, retryDelay: 0 } },
   })
   return render(
     <QueryClientProvider client={client}>
@@ -46,6 +46,28 @@ describe('App', () => {
 
     expect(await screen.findByText('Asha Rao')).toBeInTheDocument()
     expect(await screen.findByText(/no openings loaded/i)).toBeInTheDocument()
+  })
+
+  it('offers a retry when the candidate file fails to open', async () => {
+    window.history.replaceState({}, '', '/?resume=7')
+    vi.mocked(getResume).mockRejectedValue(
+      new ApiError(500, 'The server could not open that file.'),
+    )
+    vi.mocked(getRecommendations).mockResolvedValue(EMPTY_RESULTS)
+    vi.mocked(getJobsCount).mockResolvedValue(0)
+
+    renderApp()
+
+    expect(
+      await screen.findByText('The server could not open that file.'),
+    ).toBeInTheDocument()
+
+    const callsBeforeRetry = vi.mocked(getResume).mock.calls.length
+    vi.mocked(getResume).mockResolvedValue(makeResume())
+    await userEvent.click(screen.getByRole('button', { name: /retry/i }))
+
+    expect(await screen.findByText('Asha Rao')).toBeInTheDocument()
+    expect(getResume).toHaveBeenCalledTimes(callsBeforeRetry + 1)
   })
 
   it('opens a selected role in the case file and writes it to the URL', async () => {
