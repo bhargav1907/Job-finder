@@ -7,10 +7,10 @@
 
 - **Last done:** M5 — frontend. Placement-desk dossier: dark default + light, three panes
   ≥1280px, candidate strip at 768–1279, list↔detail below. URL carries `resume`/`job`.
-  Verified: `npm --prefix frontend test` (39), `build`, `test:visual` (4, axe clean), and
-  a real recommendations call → 200, 30 items, rerank unavailable without Ollama.
-  Fresh whole-branch review: no Critical findings; one Important fix (retry on a failed
-  candidate-file load).
+  Verified: `npm --prefix frontend test` (39), `build`, `test:visual` (4, axe clean); a real
+  recommendations call → 200; fresh review with one Important fix (retry on failed load).
+  End-to-end on 2026-11-16 with Ollama: a real resume upload parsed and ranked, but the cold
+  first result took ≈5 min — latency is the known follow-up.
 - **In progress:** none.
 - **Next:** M6 — SmartRecruiters + Freshteam adapters and an India-only board filter.
 - **Then:** Postgres + pgvector migration.
