@@ -1,17 +1,37 @@
-from app.services.rerank import _job_card, _resume_card, prompt_version
+from app.services.rerank import (
+    _job_card,
+    _resume_card,
+    prompt_version,
+    provider_label,
+)
 from tests.factories import make_job, make_profile
 
 
-def test_prompt_version_includes_model():
-    assert prompt_version("lfm3:1.7b") == "rerank-v1@lfm3:1.7b"
+def test_prompt_version_includes_provider_and_model():
+    assert (
+        prompt_version("lfm3:1.7b", provider="ollama")
+        == "rerank-v1@ollama/lfm3:1.7b"
+    )
+    assert (
+        prompt_version("openai/gpt-oss-120b", provider="openai:api.groq.com")
+        == "rerank-v1@openai:api.groq.com/openai/gpt-oss-120b"
+    )
+
+
+def test_provider_label_keeps_ollama_short_and_names_hosts():
+    assert provider_label("ollama", "http://localhost:11434") == "ollama"
+    assert (
+        provider_label("openai", "https://api.groq.com/openai/v1")
+        == "openai:api.groq.com"
+    )
 
 
 def test_job_card_is_compact_and_marks_salary():
     job = make_job(id=7, description="y" * 600)
     card = _job_card(job)
     assert card.startswith("JOB 7")
-    assert "y" * 400 in card
-    assert "y" * 401 not in card
+    assert "y" * 200 in card
+    assert "y" * 201 not in card
     assert "Salary: 1200000-1800000 INR" in card
 
 
@@ -35,6 +55,7 @@ from sqlmodel import select
 
 from app.config import get_settings
 from app.embeddings import to_bytes
+from app.llm.client import LLMError
 from app.models import Match, Resume
 from app.services.rerank import RerankOutcome, rerank_jobs
 
@@ -167,6 +188,16 @@ def test_http_error_degrades_all_and_stops_calling(session):
     resume = add_resume(session)
     jobs = add_jobs(session, 12)
     client = FakeClient(httpx.ConnectError("down"))
+    outcome = rerank_jobs(session, resume, jobs, client=client)
+    assert len(client.calls) == 1
+    assert len(outcome.results) == 12
+    assert outcome.status == "unavailable"
+
+
+def test_llm_error_degrades_all_and_stops_without_retrying(session):
+    resume = add_resume(session)
+    jobs = add_jobs(session, 12)
+    client = FakeClient(LLMError("rate limited"))
     outcome = rerank_jobs(session, resume, jobs, client=client)
     assert len(client.calls) == 1
     assert len(outcome.results) == 12

@@ -2,11 +2,12 @@
 
 from dataclasses import dataclass
 from typing import Literal
+from urllib.parse import urlparse
 
 import httpx
 from sqlmodel import Session, select
 
-from ..config import get_settings
+from ..config import Settings, get_settings
 from ..llm.client import LLMClient, LLMError
 from ..models import Job, Match, Resume
 from ..schemas import ResumeProfile
@@ -62,8 +63,23 @@ class RerankOutcome:
     status: Literal["ok", "partial", "unavailable"]
 
 
-def prompt_version(model: str) -> str:
-    return f"{PROMPT_PREFIX}@{model}"
+def provider_label(protocol: str, base_url: str) -> str:
+    """Short, stable provider name for cache keys."""
+    if protocol == "ollama":
+        return "ollama"
+    host = urlparse(base_url).netloc or base_url
+    return f"{protocol}:{host}"
+
+
+def rerank_provider(settings: Settings | None = None) -> str:
+    settings = settings or get_settings()
+    protocol = settings.llm_rerank_protocol or settings.llm_protocol
+    base_url = settings.llm_rerank_base_url or settings.llm_base_url
+    return provider_label(protocol, base_url)
+
+
+def prompt_version(model: str, provider: str | None = None) -> str:
+    return f"{PROMPT_PREFIX}@{provider or rerank_provider()}/{model}"
 
 
 def _job_card(job: Job) -> str:
@@ -81,7 +97,7 @@ def _job_card(job: Job) -> str:
         f"Seniority: {job.seniority}\n"
         f"Salary: {salary}\n"
         f"Skills: {', '.join(job.skills) or 'none'}\n"
-        f"Description: {job.description[:400]}"
+        f"Description: {job.description[:get_settings().rerank_description_chars]}"
     )
 
 
@@ -172,9 +188,14 @@ def rerank_jobs(
         return RerankOutcome(results={}, status="ok")
 
     settings = get_settings()
-    client = client or LLMClient()
+    client = client or LLMClient(
+        protocol=settings.llm_rerank_protocol or None,
+        base_url=settings.llm_rerank_base_url or None,
+        api_key=settings.llm_rerank_api_key or None,
+        timeout=settings.llm_rerank_timeout,
+    )
     model = settings.llm_rerank_model
-    version = prompt_version(model)
+    version = prompt_version(model, rerank_provider(settings))
     profile = ResumeProfile.model_validate(resume.profile)
     resume_card = _resume_card(profile)
     batch_size = settings.rerank_batch_size
@@ -192,7 +213,7 @@ def rerank_jobs(
         requested = {job.id for job in batch}
         try:
             batch_results = _attempt_batch(client, model, user, requested)
-        except httpx.HTTPError:
+        except (httpx.HTTPError, LLMError):
             stopped = True
             batch_results = None
 
@@ -265,14 +286,15 @@ def _store_results(
 def _attempt_batch(
     client: LLMClient, model: str, user: str, requested: set[int]
 ) -> dict[int, RerankResult] | None:
-    """One attempt, one retry; None when the batch is still unusable."""
+    """Retry once on an unusable response; provider errors propagate so the
+    caller can stop instead of spending another request per batch."""
     try:
         return _validate_batch(_call(client, model, user), requested)
-    except (RerankValidationError, LLMError) as first_error:
+    except RerankValidationError as first_error:
         retry = f"{user}\n\nThe previous response failed validation: {first_error}"
         try:
             return _validate_batch(_call(client, model, retry), requested)
-        except (RerankValidationError, LLMError):
+        except RerankValidationError:
             return None
 
 

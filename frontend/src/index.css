@@ -417,6 +417,29 @@ details[open] > .candidate-refine-summary svg {
   background: var(--color-line);
 }
 
+.progress-track {
+  height: 2px;
+  overflow: hidden;
+  background: var(--color-line);
+}
+
+.progress-bar {
+  display: block;
+  width: 35%;
+  height: 100%;
+  background: var(--color-brass);
+  animation: progress-slide 1.4s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(385%);
+  }
+}
+
 .case-file {
   max-width: 46rem;
 }

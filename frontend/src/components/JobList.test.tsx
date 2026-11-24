@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { makeItem, makeJob } from '../test/fixtures'
@@ -46,6 +46,24 @@ describe('JobList', () => {
     expect(
       screen.getByRole('button', { name: /clear filters/i }),
     ).toBeInTheDocument()
+  })
+
+  it('shows a ranking status, elapsed time, and a slow hint', () => {
+    vi.useFakeTimers()
+    try {
+      renderList({ isLoading: true })
+
+      expect(screen.getByText(/ranking fit/i)).toBeInTheDocument()
+
+      act(() => {
+        vi.advanceTimersByTime(13_000)
+      })
+
+      expect(screen.getByText(/13s/i)).toBeInTheDocument()
+      expect(screen.getByText(/still working/i)).toBeInTheDocument()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('separates roles with listed pay from roles without it', () => {

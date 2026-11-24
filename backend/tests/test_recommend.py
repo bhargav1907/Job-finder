@@ -154,6 +154,36 @@ def test_limit_scales_the_target(session, monkeypatch):
     assert (len(result.items), len(result.items_without_salary)) == (4, 2)
 
 
+def test_rerank_is_capped_per_bucket(session, monkeypatch):
+    resume, _, _, paid, unknown = seed_partition(session, 25, 15)
+    seen = {}
+
+    def fake_rerank(*args, **kwargs):
+        jobs = args[2]
+        seen["ids"] = [job.id for job in jobs]
+        return rerank_all(jobs)
+
+    monkeypatch.setattr("app.services.recommend.retrieve_jobs",
+                        lambda *a, **k: retrieval(paid, unknown))
+    monkeypatch.setattr("app.services.recommend.rerank_jobs", fake_rerank)
+    recommend_jobs(session, resume)
+    assert len(seen["ids"]) == 35  # 20 with pay + 15 without
+
+
+def test_unreranked_candidates_fall_back_to_retrieval(session, monkeypatch):
+    resume, _, _, paid, unknown = seed_partition(session, 25, 15)
+    reranked_jobs = [c.job for c in paid[:20] + unknown[:20]]
+
+    monkeypatch.setattr("app.services.recommend.retrieve_jobs",
+                        lambda *a, **k: retrieval(paid, unknown))
+    monkeypatch.setattr("app.services.recommend.rerank_jobs",
+                        lambda *a, **k: rerank_all(reranked_jobs))
+    result = recommend_jobs(session, resume)
+    assert (len(result.items), len(result.items_without_salary)) == (20, 10)
+    assert all(item.reranked for item in result.items)
+    assert all(item.reranked for item in result.items_without_salary)
+
+
 def test_degraded_item_uses_retrieval_score_and_empty_explanations(session, monkeypatch):
     resume = add_resume(session)
     job = add_job(session, embedding=None)

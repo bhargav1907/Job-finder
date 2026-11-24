@@ -51,15 +51,21 @@ def recommend_jobs(
     limit = limit if limit is not None else settings.final_top_k
     retrieved = retrieve_jobs(session, resume, filters=filters, limit=settings.top_k)
     candidates = _dedupe(retrieved.items + retrieved.items_without_salary)
-    outcome = rerank_jobs(session, resume, [c.job for c in candidates], client=client)
+    # Keep the retrieval pool wide for backfill, but only spend model tokens on
+    # the top slice of each salary bucket.
+    rerank_pool = _dedupe(
+        retrieved.items[: settings.rerank_top_per_bucket]
+        + retrieved.items_without_salary[: settings.rerank_top_per_bucket]
+    )
+    outcome = rerank_jobs(session, resume, [c.job for c in rerank_pool], client=client)
 
     profile = ResumeProfile.model_validate(resume.profile)
     currency = (profile.currency or "INR").upper()
     known: list[RecommendedJob] = []
     unstated: list[RecommendedJob] = []
     for candidate in candidates:
-        rerank_result = outcome.results[candidate.job.id]
-        if rerank_result.reranked:
+        rerank_result = outcome.results.get(candidate.job.id)
+        if rerank_result is not None and rerank_result.reranked:
             score = blend_score(
                 rerank_result.score, candidate.score, settings.rerank_llm_weight
             )
@@ -75,7 +81,7 @@ def recommend_jobs(
             matched_skills=list(candidate.matched_skills),
             reasons=reasons,
             gaps=gaps,
-            reranked=rerank_result.reranked,
+            reranked=rerank_result is not None and rerank_result.reranked,
         )
         if salary_is_unknown(candidate.job, currency):
             unstated.append(item)

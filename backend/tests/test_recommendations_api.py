@@ -13,6 +13,9 @@ from tests.factories import make_job, make_profile
 @pytest.fixture(autouse=True)
 def fake_rerank_client(monkeypatch):
     class FakeRerankClient:
+        def __init__(self, **kwargs):
+            pass
+
         def complete_json(self, system, user, *, model, max_tokens=1024,
                           json_schema=None, purpose=""):
             ids = [int(value) for value in re.findall(r"JOB (\d+)", user)]

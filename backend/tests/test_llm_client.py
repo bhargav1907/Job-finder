@@ -1,6 +1,9 @@
 import logging
 
-from app.llm.client import LLMClient
+import openai
+import pytest
+
+from app.llm.client import LLMClient, LLMError
 
 SCHEMA = {
     "type": "object",
@@ -66,6 +69,37 @@ def test_ollama_token_counts_are_logged(monkeypatch, caplog):
         "llm_call model=lfm3:1.7b purpose=rerank "
         "prompt_tokens=812 completion_tokens=143 total_ms=2140"
     ) in caplog.text
+
+
+def test_openai_provider_errors_become_llm_error(monkeypatch):
+    class FakeOpenAI:
+        def __init__(self, **kwargs):
+            self.chat = type(
+                "Chat",
+                (),
+                {
+                    "completions": type(
+                        "Completions",
+                        (),
+                        {
+                            "create": lambda self, **kwargs: (_ for _ in ()).throw(
+                                openai.APIError(
+                                    "rate limited", request=None, body=None
+                                )
+                            )
+                        },
+                    )()
+                },
+            )()
+
+    monkeypatch.setattr(openai, "OpenAI", FakeOpenAI)
+    client = LLMClient(
+        protocol="openai",
+        base_url="https://api.groq.com/openai/v1",
+        api_key="test",
+    )
+    with pytest.raises(LLMError, match="rate limited"):
+        client.complete_json("system", "user", model="openai/gpt-oss-120b")
 
 
 def test_missing_token_fields_log_dashes(monkeypatch, caplog):

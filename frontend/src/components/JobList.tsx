@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import type { RecommendationItem } from '../types'
 import { JobRow } from './JobRow'
@@ -13,6 +13,49 @@ interface JobListProps {
   onRetry: () => void
   onClearFilters: () => void
   activeCount: number
+}
+
+function RankingState() {
+  const [elapsed, setElapsed] = useState(0)
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setElapsed((seconds) => seconds + 1)
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [])
+
+  return (
+    <section aria-busy="true">
+      <p className="text-[12px] text-muted" role="status">
+        Ranking fit across the openings
+        {elapsed > 2 ? (
+          <span aria-hidden="true"> · {elapsed}s</span>
+        ) : (
+          '…'
+        )}
+      </p>
+      <div className="progress-track mt-2" aria-hidden="true">
+        <span className="progress-bar" />
+      </div>
+      {elapsed >= 12 ? (
+        <p className="mt-2 text-[12px] text-faint" aria-live="polite">
+          Still working. This is taking longer than usual.
+        </p>
+      ) : null}
+      <ul className="mt-4">
+        {[0, 1, 2, 3].map((row) => (
+          <li key={row} className="skeleton-row" aria-hidden="true">
+            <span className="skeleton-mark" />
+            <span className="min-w-0 flex-1">
+              <span className="skeleton-bar w-3/4" />
+              <span className="skeleton-bar mt-2 w-1/2" />
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
 }
 
 export function JobList({
@@ -54,22 +97,7 @@ export function JobList({
   }
 
   if (isLoading) {
-    return (
-      <section aria-busy="true">
-        <p className="sr-only">Loading openings</p>
-        <ul className="mt-4">
-          {[0, 1, 2, 3].map((row) => (
-            <li key={row} className="skeleton-row" aria-hidden="true">
-              <span className="skeleton-mark" />
-              <span className="min-w-0 flex-1">
-                <span className="skeleton-bar w-3/4" />
-                <span className="skeleton-bar mt-2 w-1/2" />
-              </span>
-            </li>
-          ))}
-        </ul>
-      </section>
-    )
+    return <RankingState />
   }
 
   if (error) {

@@ -10,6 +10,7 @@ coding-plan / harness endpoint.
 import json
 import logging
 import re
+import time
 
 import httpx
 
@@ -66,7 +67,9 @@ class LLMClient:
             )
         if self.protocol == "anthropic":
             return self._anthropic(system, user, model, max_tokens, temperature)
-        return self._openai(system, user, model, max_tokens, temperature, json_mode)
+        return self._openai(
+            system, user, model, max_tokens, temperature, json_mode, purpose
+        )
 
     def complete_json(
         self,
@@ -136,18 +139,21 @@ class LLMClient:
         return data.get("message", {}).get("content", "")
 
     def _anthropic(self, system: str, user: str, model: str, max_tokens: int, temperature: float) -> str:
-        import anthropic
+        from anthropic import Anthropic, APIError
 
-        client = anthropic.Anthropic(
+        client = Anthropic(
             api_key=self.api_key, base_url=self.base_url, timeout=self.timeout
         )
-        message = client.messages.create(
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            system=system,
-            messages=[{"role": "user", "content": user}],
-        )
+        try:
+            message = client.messages.create(
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                system=system,
+                messages=[{"role": "user", "content": user}],
+            )
+        except APIError as exc:
+            raise LLMError(f"anthropic call failed: {exc}") from exc
         return "".join(
             block.text for block in message.content if getattr(block, "type", "") == "text"
         )
@@ -160,10 +166,18 @@ class LLMClient:
         max_tokens: int,
         temperature: float,
         json_mode: bool,
+        purpose: str = "",
     ) -> str:
-        from openai import OpenAI
+        from openai import APIError, OpenAI
 
-        client = OpenAI(api_key=self.api_key, base_url=self.base_url, timeout=self.timeout)
+        # Our retry/degrade policy lives in rerank.py; the SDK's hidden retries
+        # would spend quota again on a 429 and delay degradation.
+        client = OpenAI(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            timeout=self.timeout,
+            max_retries=0,
+        )
         kwargs: dict = {
             "model": model,
             "max_tokens": max_tokens,
@@ -175,7 +189,21 @@ class LLMClient:
         }
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
-        response = client.chat.completions.create(**kwargs)
+        started = time.perf_counter()
+        try:
+            response = client.chat.completions.create(**kwargs)
+        except APIError as exc:
+            raise LLMError(f"openai-compatible call failed: {exc}") from exc
+        usage = getattr(response, "usage", None)
+        logger.info(
+            "llm_call provider=openai model=%s purpose=%s prompt_tokens=%s "
+            "completion_tokens=%s total_ms=%s",
+            model,
+            purpose or "-",
+            getattr(usage, "prompt_tokens", "-"),
+            getattr(usage, "completion_tokens", "-"),
+            round((time.perf_counter() - started) * 1000),
+        )
         return response.choices[0].message.content or ""
 
 

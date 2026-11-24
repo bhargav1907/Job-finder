@@ -11,22 +11,29 @@
   recommendations call → 200; fresh review with one Important fix (retry on failed load).
   End-to-end on 2026-11-16 with Ollama: a real resume upload parsed and ranked, but the cold
   first result took ≈5 min — latency is the known follow-up.
-- **In progress:** none.
+- **In progress:** M5.5 — ranked results without the five-minute wait. Rerank is pluggable
+  via `LLM_RERANK_*` (parse stays local), only 20 candidates per salary bucket reach the
+  model, cards are capped at 200 chars, a provider error stops the loop instead of
+  retrying every batch, and the list shows a live ranking status. Verified: backend
+  `pytest`, `npm test` (40), `npm run build`. Live Groq call not yet run — needs a key.
 - **Next:** M6 — SmartRecruiters + Freshteam adapters and an India-only board filter.
 - **Then:** Postgres + pgvector migration.
 
 ## Decisions & invariants
 
-1. **Local models only.** Parse uses `qwen3:4b` (~3.9 GB at 8K), rerank uses `lfm3:1.7b`,
-   fallback `llama3.2:3b` on invalid JSON. `gemma4:12b` thrashed this 16 GB machine.
-   Never point `LLM_BASE_URL` at a hosted or coding-plan endpoint.
+1. **Local by default; rerank may be hosted.** Parse uses `qwen3:4b` (~3.9 GB at 8K) and
+   stays local. Rerank uses `lfm3:1.7b` unless `LLM_RERANK_*` names an OpenAI-compatible
+   provider. Fallback `llama3.2:3b` on invalid JSON. `gemma4:12b` thrashed this 16 GB
+   machine. Never point any base URL at a hosted or coding-plan harness endpoint.
 2. **Salary is reconciled deterministically.** `parse_salary()` is authoritative for LPA;
    a monthly stipend is multiplied by 12; inverted ranges become null. Never trust the
    model's units.
 3. **Cache before tokens.** Every LLM call checks the `matches` table first; resume
    dedupe by content hash happens before any parse call.
-4. **Validate batch output.** A rerank response is untrusted until every requested
-   `job_id` is present; small local models silently drop items.
+4. **Validate batch output and bound the input.** A rerank response is untrusted until
+   every requested `job_id` is present; small models silently drop items. Only the top
+   20 per salary bucket are sent, and a provider error stops the loop and degrades — it
+   never retries every batch or falls back to the slow local rerank mid-request.
 5. **Demo data only.** The app never fetches jobs at runtime; the UI carries the demo badge.
 6. **Tavily is the only web path**, and it is budgeted at 1,000 requests/month.
 7. **Top-level split by runtime:** `backend/` and `frontend/` (source in `frontend/src/`).
@@ -39,9 +46,10 @@
 10. **M4 returns up to 30 results.** Target 20 salary-known + 10 salary-unstated,
     backfilling unused slots from the other list. Scores blend 0.7 × LLM fit with
     0.3 × retrieval.
-11. **Rerank cache keys include the model.** `prompt_version` is
-    `rerank-v1@<llm_rerank_model>`; change it with the model or prompt. SQLite BLOBs and
-    in-memory numpy are enough until the Postgres + pgvector migration.
+11. **Rerank cache keys include provider and model.** `prompt_version` is
+    `rerank-v1@<provider>/<model>` (for example `rerank-v1@openai:api.groq.com/gpt-oss-120b`);
+    change it with the provider, model, or prompt. SQLite BLOBs and in-memory numpy are
+    enough until the Postgres + pgvector migration.
 12. **`data/boards.json` is the only live board list.** Adapters never invent a host;
     Darwinbox boards must match `<tenant>.darwinbox.(in|com)`.
 13. **Live ingest is CLI-only** (`python -m app.cli ingest --live`). API requests never fetch.
