@@ -96,9 +96,10 @@ def prompt_version(
 
 
 def rerank_timeout(settings: Settings) -> float | None:
-    """Only override the timeout when a different rerank host is configured.
+    """Only override the timeout when a rerank endpoint override is configured.
 
-    The hosted default (30 s) must not shorten the local model's cold start.
+    The hosted default (30 s) must not shorten the default local model's cold
+    start. An explicit local override is treated as a deliberate choice.
     """
     if not (settings.llm_rerank_protocol or settings.llm_rerank_base_url):
         return None
