@@ -5,34 +5,49 @@
 
 ## Current focus
 
-- **Last done:** M4.5 — live India ATS sources. `data/boards.json` lists 18 validated
-  boards; Greenhouse, Keka, and Darwinbox adapters sit behind `JobSource`. A live
-  smoke ingest fetched 3,627 postings (Darwinbox 2,855, Greenhouse 674, Keka 98) and
-  a second run inserted 0. Research: `docs/research/india-ats-probe-2026-11-09.md`.
-- **In progress:** none.
-- **Next:** M5 — frontend.
-- **Then:** M6 — tests/docs. Source expansion and multi-country support are post-V1;
+- **Last done:** M5 — frontend. Placement-desk dossier: dark default + light, three panes
+  ≥1280px, candidate strip at 768–1279, list↔detail below. URL carries `resume`/`job`.
+  Verified: `npm --prefix frontend test` (39), `build`, `test:visual` (4, axe clean); a real
+  recommendations call → 200; fresh review with one Important fix (retry on failed load).
+  End-to-end on 2026-11-16 with Ollama: a real resume upload parsed and ranked, but the cold
+  first result took ≈5 min — latency is the known follow-up.
+- **In progress:** M5.5 — ranked results without the five-minute wait. Rerank is pluggable
+  via `LLM_RERANK_*` (parse stays local), only 20 candidates per salary group reach the
+  model, cards are capped at 200 chars, a provider error stops the loop instead of
+  retrying every batch, and the list shows a live ranking status (including filter
+  refetches). Review fixes: the cap is applied after splitting listed/unstated pay;
+  visible retrieval-only backfill reports `partial` and ranks below reranked items;
+  unusable model content retries only its own batch; the hosted timeout no longer
+  shortens local cold starts; a rerank endpoint override never inherits the parse key.
+  Verified: backend `pytest` (154 passed, 3 skipped), `npm test` (41), `npm run build`.
+  Live Groq call not yet run — needs a key.
+- **Next:** M6 — tests/docs. Source expansion and multi-country support are post-V1;
   see `docs/FUTURE.md`.
+- **Then:** Postgres + pgvector migration.
 
 ## Decisions & invariants
 
-1. **Local models only.** Resume parse uses `qwen3:4b` (~3.9 GB loaded at 8K context);
-   rerank uses `lfm3:1.7b`; fallback `llama3.2:3b` on invalid JSON. `gemma4:12b` is
-   rejected on this machine — its 7.7 GB footprint thrashed 16 GB. Never point
-   `LLM_BASE_URL` at a hosted or coding-plan endpoint.
+1. **Local by default; rerank may be hosted.** Parse uses `qwen3:4b` (~3.9 GB at 8K) and
+   stays local. Rerank uses `lfm3:1.7b` unless `LLM_RERANK_*` names an OpenAI-compatible
+   provider. Fallback `llama3.2:3b` on invalid JSON. `gemma4:12b` thrashed this 16 GB
+   machine. Never point any base URL at a hosted or coding-plan harness endpoint.
 2. **Salary is reconciled deterministically.** `parse_salary()` is authoritative for LPA;
    a monthly stipend is multiplied by 12; inverted ranges become null. Never trust the
    model's units.
 3. **Cache before tokens.** Every LLM call checks the `matches` table first; resume
    dedupe by content hash happens before any parse call.
-4. **Validate batch output.** A rerank response is untrusted until every requested
-   `job_id` is present; small local models silently drop items.
+4. **Validate batch output and bound the input.** A rerank response is untrusted until
+   every requested `job_id` is present; small models silently drop items. Only the top
+   20 per salary group (listed pay / not stated) are sent, split after retrieval because
+   an unfiltered request returns one bucket. Unusable content retries that batch once,
+   then degrades it; a provider error stops the loop and degrades everything — never a
+   retry per batch or a local fallback mid-request. Retrieval-only items always rank
+   below reranked ones and make the visible status `partial`.
 5. **The API never fetches jobs at runtime.** The demo DB uses seed data; live ingest is
    CLI-only and the UI carries the demo badge.
 6. **Tavily is the only web path**, and it is budgeted at 1,000 requests/month.
-7. **Top-level split by runtime:** `backend/` and `frontend/` (Vite app, source in
-   `frontend/src/`). No root `src/` — the empty root `src/` scaffold was removed on
-   2026-11-03.
+7. **Top-level split by runtime:** `backend/` and `frontend/` (source in `frontend/src/`).
+   No root `src/`.
 8. **Retrieval is deterministic and LLM-free.** Explicit hard filters only, score =
    `0.85 × cosine + 0.15 × skill share`, up to 40 candidates per bucket. No filter is
    inferred from the resume.
@@ -41,10 +56,10 @@
 10. **M4 returns up to 30 results.** Target 20 salary-known + 10 salary-unstated,
     backfilling unused slots from the other list. Scores blend 0.7 × LLM fit with
     0.3 × retrieval.
-11. **Rerank cache keys include the model.** `prompt_version` is
-    `rerank-v1@<llm_rerank_model>`; changing the model or prompt must change the string.
-    A vector store waits for the Postgres + pgvector migration; SQLite BLOBs and
-    in-memory numpy are enough for the demo corpus.
+11. **Rerank cache keys include provider and model.** `prompt_version` is
+    `rerank-v1@<provider>/<model>` (for example `rerank-v1@openai:api.groq.com/gpt-oss-120b`);
+    change it with the provider, model, or prompt. SQLite BLOBs and in-memory numpy are
+    enough until the Postgres + pgvector migration.
 12. **`data/boards.json` is the only live board list.** Adapters never invent a host;
     Darwinbox boards must match `<tenant>.darwinbox.(in|com)`.
 13. **Live ingest is CLI-only** (`python -m app.cli ingest --live`). API requests never fetch.
@@ -55,6 +70,11 @@
     vanished live posting stays in the DB until that is approved.
 16. **Live salaries stay unstated.** Adapters do not guess currency or period; structured
     pay parsing is deferred.
+17. **Dark is the default; light is opt-in.** `fla.theme` is applied before paint and
+    persists. The demo badge stays visible at every width.
+18. **The UI reports only what the API returned.** Missing pay says "Pay not stated";
+    `remote: false` is never relabelled; retrieval-only results say so. Scores are 0–100
+    and INR pay is displayed as LPA.
 
 ## Open questions
 

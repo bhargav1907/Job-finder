@@ -8,7 +8,8 @@ preferences, and get ranked roles with a fit score, reasons, and skill gaps.
 ## Prerequisites
 
 - Python 3.14 and Node 20+
-- [Ollama](https://ollama.com) with the local model pulled: `ollama pull lfm3:1.7b`
+- [Ollama](https://ollama.com) with both local models pulled:
+  `ollama pull qwen3:4b` and `ollama pull lfm3:1.7b`
 
 No cloud API keys are used. Parsing and scoring run entirely on your machine.
 
@@ -28,6 +29,8 @@ cd frontend
 npm install
 npm run dev                      # http://localhost:5173
 ```
+
+Both servers at once: `./scripts/dev.sh`
 
 ## How matching works
 

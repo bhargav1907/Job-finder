@@ -2,12 +2,13 @@
 
 from dataclasses import dataclass
 from typing import Literal
+from urllib.parse import urlparse
 
 import httpx
 from sqlmodel import Session, select
 
-from ..config import get_settings
-from ..llm.client import LLMClient, LLMError
+from ..config import Settings, get_settings
+from ..llm.client import LLMClient, LLMError, LLMResponseError
 from ..models import Job, Match, Resume
 from ..schemas import ResumeProfile
 
@@ -62,11 +63,50 @@ class RerankOutcome:
     status: Literal["ok", "partial", "unavailable"]
 
 
-def prompt_version(model: str) -> str:
-    return f"{PROMPT_PREFIX}@{model}"
+def provider_label(protocol: str, base_url: str) -> str:
+    """Short, stable provider name for cache keys."""
+    host = urlparse(base_url).hostname or base_url
+    if protocol == "ollama":
+        # Scores from a remote Ollama host are not the same as local ones.
+        if host in ("localhost", "127.0.0.1", "::1"):
+            return "ollama"
+        return f"ollama:{host}"
+    netloc = urlparse(base_url).netloc or base_url
+    return f"{protocol}:{netloc}"
 
 
-def _job_card(job: Job) -> str:
+def rerank_provider(settings: Settings | None = None) -> str:
+    settings = settings or get_settings()
+    protocol = settings.llm_rerank_protocol or settings.llm_protocol
+    base_url = settings.llm_rerank_base_url or settings.llm_base_url
+    return provider_label(protocol, base_url)
+
+
+def prompt_version(
+    model: str,
+    provider: str | None = None,
+    description_chars: int | None = None,
+) -> str:
+    chars = (
+        description_chars
+        if description_chars is not None
+        else get_settings().rerank_description_chars
+    )
+    return f"{PROMPT_PREFIX}@{provider or rerank_provider()}/{model}#{chars}"
+
+
+def rerank_timeout(settings: Settings) -> float | None:
+    """Only override the timeout when a rerank endpoint override is configured.
+
+    The hosted default (30 s) must not shorten the default local model's cold
+    start. An explicit local override is treated as a deliberate choice.
+    """
+    if not (settings.llm_rerank_protocol or settings.llm_rerank_base_url):
+        return None
+    return settings.llm_rerank_timeout
+
+
+def _job_card(job: Job, description_chars: int = 200) -> str:
     if job.salary_min is None and job.salary_max is None:
         salary = "not stated"
     else:
@@ -81,7 +121,7 @@ def _job_card(job: Job) -> str:
         f"Seniority: {job.seniority}\n"
         f"Salary: {salary}\n"
         f"Skills: {', '.join(job.skills) or 'none'}\n"
-        f"Description: {job.description[:400]}"
+        f"Description: {job.description[:description_chars]}"
     )
 
 
@@ -172,9 +212,23 @@ def rerank_jobs(
         return RerankOutcome(results={}, status="ok")
 
     settings = get_settings()
-    client = client or LLMClient()
+    rerank_endpoint = bool(
+        settings.llm_rerank_protocol or settings.llm_rerank_base_url
+    )
+    if client is None:
+        # An endpoint override without its own key must fail rather than reuse
+        # the parsing credential on a different host.
+        client = LLMClient(
+            protocol=settings.llm_rerank_protocol or None,
+            base_url=settings.llm_rerank_base_url or None,
+            api_key=(settings.llm_rerank_api_key or "") if rerank_endpoint else None,
+            timeout=rerank_timeout(settings),
+        )
     model = settings.llm_rerank_model
-    version = prompt_version(model)
+    description_chars = settings.rerank_description_chars
+    version = prompt_version(
+        model, rerank_provider(settings), description_chars
+    )
     profile = ResumeProfile.model_validate(resume.profile)
     resume_card = _resume_card(profile)
     batch_size = settings.rerank_batch_size
@@ -188,11 +242,13 @@ def rerank_jobs(
             results.update({job.id: _degraded() for job in batch})
             continue
 
-        user = resume_card + "\n\n" + "\n\n".join(_job_card(job) for job in batch)
+        user = resume_card + "\n\n" + "\n\n".join(
+            _job_card(job, description_chars) for job in batch
+        )
         requested = {job.id for job in batch}
         try:
             batch_results = _attempt_batch(client, model, user, requested)
-        except httpx.HTTPError:
+        except (httpx.HTTPError, LLMError):
             stopped = True
             batch_results = None
 
@@ -265,14 +321,21 @@ def _store_results(
 def _attempt_batch(
     client: LLMClient, model: str, user: str, requested: set[int]
 ) -> dict[int, RerankResult] | None:
-    """One attempt, one retry; None when the batch is still unusable."""
+    """Retry once on an unusable response; provider errors propagate so the
+    caller can stop instead of spending another request per batch.
+
+    Unusable content covers both failed validation and a reply that was not
+    JSON at all (LLMResponseError): both are worth one retry for that batch,
+    while a transport/provider failure will not improve on retry.
+    """
+    unusable = (RerankValidationError, LLMResponseError)
     try:
         return _validate_batch(_call(client, model, user), requested)
-    except (RerankValidationError, LLMError) as first_error:
+    except unusable as first_error:
         retry = f"{user}\n\nThe previous response failed validation: {first_error}"
         try:
             return _validate_batch(_call(client, model, retry), requested)
-        except (RerankValidationError, LLMError):
+        except unusable:
             return None
 
 

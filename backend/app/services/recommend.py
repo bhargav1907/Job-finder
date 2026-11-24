@@ -51,15 +51,33 @@ def recommend_jobs(
     limit = limit if limit is not None else settings.final_top_k
     retrieved = retrieve_jobs(session, resume, filters=filters, limit=settings.top_k)
     candidates = _dedupe(retrieved.items + retrieved.items_without_salary)
-    outcome = rerank_jobs(session, resume, [c.job for c in candidates], client=client)
 
     profile = ResumeProfile.model_validate(resume.profile)
     currency = (profile.currency or "INR").upper()
+    known_candidates = [
+        candidate
+        for candidate in candidates
+        if not salary_is_unknown(candidate.job, currency)
+    ]
+    unstated_candidates = [
+        candidate
+        for candidate in candidates
+        if salary_is_unknown(candidate.job, currency)
+    ]
+    # Retrieval returns one bucket when no pay floor is set, so split by the
+    # same rule the output uses before capping; otherwise the two "buckets"
+    # collapse into a single 20-item budget.
+    per_bucket = min(settings.rerank_top_per_bucket, limit)
+    rerank_pool = _dedupe(
+        known_candidates[:per_bucket] + unstated_candidates[:per_bucket]
+    )
+    outcome = rerank_jobs(session, resume, [c.job for c in rerank_pool], client=client)
+
     known: list[RecommendedJob] = []
     unstated: list[RecommendedJob] = []
     for candidate in candidates:
-        rerank_result = outcome.results[candidate.job.id]
-        if rerank_result.reranked:
+        rerank_result = outcome.results.get(candidate.job.id)
+        if rerank_result is not None and rerank_result.reranked:
             score = blend_score(
                 rerank_result.score, candidate.score, settings.rerank_llm_weight
             )
@@ -75,24 +93,36 @@ def recommend_jobs(
             matched_skills=list(candidate.matched_skills),
             reasons=reasons,
             gaps=gaps,
-            reranked=rerank_result.reranked,
+            reranked=rerank_result is not None and rerank_result.reranked,
         )
         if salary_is_unknown(candidate.job, currency):
             unstated.append(item)
         else:
             known.append(item)
 
-    known.sort(key=_sort_key)
-    unstated.sort(key=_sort_key)
+    known.sort(key=_confidence_sort_key)
+    unstated.sort(key=_confidence_sort_key)
     known_target, unstated_target = _targets(
         limit, len(known), len(unstated), settings.unstated_target_share
     )
+    known_slice = known[:known_target]
+    unstated_slice = unstated[:unstated_target]
+    visible = known_slice + unstated_slice
+    visible_reranked = sum(item.reranked for item in visible)
+    if not visible:
+        rerank_status = outcome.status
+    elif visible_reranked == len(visible):
+        rerank_status = "ok"
+    elif visible_reranked:
+        rerank_status = "partial"
+    else:
+        rerank_status = "unavailable"
     return RecommendationResult(
-        items=known[:known_target],
-        items_without_salary=unstated[:unstated_target],
+        items=known_slice,
+        items_without_salary=unstated_slice,
         total=len(known),
         without_salary_total=len(unstated),
-        rerank_status=outcome.status,
+        rerank_status=rerank_status,
         rerank_version=prompt_version(settings.llm_rerank_model),
     )
 
@@ -115,6 +145,13 @@ def _targets(limit: int, known: int, unstated: int, share: float) -> tuple[int, 
     if leftover > 0:
         unstated_target += min(leftover, unstated - unstated_target)
     return known_target, unstated_target
+
+
+def _confidence_sort_key(item: RecommendedJob) -> tuple[int, float, float, float, int]:
+    # An item with a model explanation outranks retrieval-only backfill; its
+    # raw retrieval score is not on the blended scale and would otherwise
+    # leapfrog reranked items.
+    return (0 if item.reranked else 1,) + _sort_key(item)
 
 
 def _sort_key(item: RecommendedJob) -> tuple[float, float, float, int]:
