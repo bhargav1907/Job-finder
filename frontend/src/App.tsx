@@ -228,6 +228,10 @@ export function App() {
                   selectedJobId={selection.jobId}
                   onSelect={selectJob}
                   isLoading={recommendationsQuery.isPending}
+                  isRefreshing={
+                    recommendationsQuery.isFetching &&
+                    !recommendationsQuery.isPending
+                  }
                   error={recommendationError}
                   onRetry={() => {
                     void recommendationsQuery.refetch()

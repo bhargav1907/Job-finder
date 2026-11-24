@@ -1,29 +1,60 @@
+from app.config import Settings
 from app.services.rerank import (
     _job_card,
     _resume_card,
     prompt_version,
     provider_label,
+    rerank_timeout,
 )
 from tests.factories import make_job, make_profile
 
 
-def test_prompt_version_includes_provider_and_model():
+def test_prompt_version_includes_provider_model_and_card_length():
     assert (
-        prompt_version("lfm3:1.7b", provider="ollama")
-        == "rerank-v1@ollama/lfm3:1.7b"
+        prompt_version("lfm3:1.7b", provider="ollama", description_chars=200)
+        == "rerank-v1@ollama/lfm3:1.7b#200"
     )
     assert (
-        prompt_version("openai/gpt-oss-120b", provider="openai:api.groq.com")
-        == "rerank-v1@openai:api.groq.com/openai/gpt-oss-120b"
+        prompt_version(
+            "openai/gpt-oss-120b",
+            provider="openai:api.groq.com",
+            description_chars=200,
+        )
+        == "rerank-v1@openai:api.groq.com/openai/gpt-oss-120b#200"
+    )
+    assert (
+        prompt_version("lfm3:1.7b", provider="ollama", description_chars=120)
+        != prompt_version("lfm3:1.7b", provider="ollama", description_chars=200)
     )
 
 
 def test_provider_label_keeps_ollama_short_and_names_hosts():
     assert provider_label("ollama", "http://localhost:11434") == "ollama"
+    assert provider_label("ollama", "http://127.0.0.1:11434") == "ollama"
+    assert (
+        provider_label("ollama", "http://192.168.1.20:11434") == "ollama:192.168.1.20"
+    )
     assert (
         provider_label("openai", "https://api.groq.com/openai/v1")
         == "openai:api.groq.com"
     )
+
+
+def test_rerank_timeout_only_applies_to_a_rerank_override():
+    local = Settings(
+        _env_file=None,
+        llm_rerank_protocol="",
+        llm_rerank_base_url="",
+        llm_rerank_api_key="",
+        llm_rerank_timeout=30.0,
+    )
+    assert rerank_timeout(local) is None
+    hosted = Settings(
+        _env_file=None,
+        llm_rerank_base_url="https://api.groq.com/openai/v1",
+        llm_rerank_timeout=30.0,
+    )
+    assert rerank_timeout(hosted) == 30.0
 
 
 def test_job_card_is_compact_and_marks_salary():
@@ -55,7 +86,7 @@ from sqlmodel import select
 
 from app.config import get_settings
 from app.embeddings import to_bytes
-from app.llm.client import LLMError
+from app.llm.client import LLMError, LLMResponseError
 from app.models import Match, Resume
 from app.services.rerank import RerankOutcome, rerank_jobs
 
@@ -202,6 +233,22 @@ def test_llm_error_degrades_all_and_stops_without_retrying(session):
     assert len(client.calls) == 1
     assert len(outcome.results) == 12
     assert outcome.status == "unavailable"
+
+
+def test_unusable_content_retries_that_batch_and_keeps_going(session):
+    resume = add_resume(session)
+    jobs = add_jobs(session, 12)
+    ids = [job.id for job in jobs]
+    client = FakeClient(
+        LLMResponseError("prose, not JSON"),
+        LLMResponseError("prose again"),
+        valid_response(ids[10:]),
+    )
+    outcome = rerank_jobs(session, resume, jobs, client=client)
+    assert len(client.calls) == 3
+    assert all(not outcome.results[job.id].reranked for job in jobs[:10])
+    assert all(outcome.results[job.id].reranked for job in jobs[10:])
+    assert outcome.status == "partial"
 
 
 def test_partial_status_when_one_batch_fails(session):

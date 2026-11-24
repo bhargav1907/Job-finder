@@ -12,10 +12,15 @@
   End-to-end on 2026-11-16 with Ollama: a real resume upload parsed and ranked, but the cold
   first result took ≈5 min — latency is the known follow-up.
 - **In progress:** M5.5 — ranked results without the five-minute wait. Rerank is pluggable
-  via `LLM_RERANK_*` (parse stays local), only 20 candidates per salary bucket reach the
+  via `LLM_RERANK_*` (parse stays local), only 20 candidates per salary group reach the
   model, cards are capped at 200 chars, a provider error stops the loop instead of
-  retrying every batch, and the list shows a live ranking status. Verified: backend
-  `pytest`, `npm test` (40), `npm run build`. Live Groq call not yet run — needs a key.
+  retrying every batch, and the list shows a live ranking status (including filter
+  refetches). Review fixes: the cap is applied after splitting listed/unstated pay;
+  visible retrieval-only backfill reports `partial` and ranks below reranked items;
+  unusable model content retries only its own batch; the hosted timeout no longer
+  shortens local cold starts; a rerank endpoint override never inherits the parse key.
+  Verified: backend `pytest` (154 passed, 3 skipped), `npm test` (41), `npm run build`.
+  Live Groq call not yet run — needs a key.
 - **Next:** M6 — SmartRecruiters + Freshteam adapters and an India-only board filter.
 - **Then:** Postgres + pgvector migration.
 
@@ -32,8 +37,11 @@
    dedupe by content hash happens before any parse call.
 4. **Validate batch output and bound the input.** A rerank response is untrusted until
    every requested `job_id` is present; small models silently drop items. Only the top
-   20 per salary bucket are sent, and a provider error stops the loop and degrades — it
-   never retries every batch or falls back to the slow local rerank mid-request.
+   20 per salary group (listed pay / not stated) are sent, split after retrieval because
+   an unfiltered request returns one bucket. Unusable content retries that batch once,
+   then degrades it; a provider error stops the loop and degrades everything — never a
+   retry per batch or a local fallback mid-request. Retrieval-only items always rank
+   below reranked ones and make the visible status `partial`.
 5. **Demo data only.** The app never fetches jobs at runtime; the UI carries the demo badge.
 6. **Tavily is the only web path**, and it is budgeted at 1,000 requests/month.
 7. **Top-level split by runtime:** `backend/` and `frontend/` (source in `frontend/src/`).

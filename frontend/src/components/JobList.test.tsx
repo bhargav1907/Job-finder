@@ -66,6 +66,15 @@ describe('JobList', () => {
     }
   })
 
+  it('shows progress while re-ranking over existing results', () => {
+    renderList({ isRefreshing: true })
+
+    expect(screen.getByText(/re-ranking fit/i)).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: /job one/i }),
+    ).toBeInTheDocument()
+  })
+
   it('separates roles with listed pay from roles without it', () => {
     renderList({
       unstated: [

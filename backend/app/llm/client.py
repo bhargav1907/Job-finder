@@ -23,6 +23,10 @@ class LLMError(RuntimeError):
     pass
 
 
+class LLMResponseError(LLMError):
+    """The provider answered, but the content could not be used."""
+
+
 class LLMClient:
     def __init__(
         self,
@@ -33,7 +37,9 @@ class LLMClient:
         timeout: float | None = None,
     ):
         settings = get_settings()
-        self.api_key = api_key or settings.llm_api_key
+        # None means "inherit the global credential"; "" means "no key", so a
+        # rerank host override can never carry the parsing key to another host.
+        self.api_key = settings.llm_api_key if api_key is None else api_key
         self.protocol = (protocol or settings.llm_protocol).lower()
         base = (base_url or settings.llm_base_url).rstrip("/")
         # Ollama's native endpoints sit at the root, not under /v1.
@@ -90,7 +96,10 @@ class LLMClient:
             json_schema=json_schema,
             purpose=purpose,
         )
-        return extract_json(raw)
+        try:
+            return extract_json(raw)
+        except LLMError as exc:
+            raise LLMResponseError(str(exc)) from exc
 
     # --- providers -------------------------------------------------------
 

@@ -3,7 +3,7 @@ import logging
 import openai
 import pytest
 
-from app.llm.client import LLMClient, LLMError
+from app.llm.client import LLMClient, LLMError, LLMResponseError
 
 SCHEMA = {
     "type": "object",
@@ -100,6 +100,29 @@ def test_openai_provider_errors_become_llm_error(monkeypatch):
     )
     with pytest.raises(LLMError, match="rate limited"):
         client.complete_json("system", "user", model="openai/gpt-oss-120b")
+
+
+def test_prose_reply_is_a_response_error(monkeypatch):
+    class ProseResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"message": {"content": "I think this job fits well."}}
+
+    monkeypatch.setattr("app.llm.client.httpx.post", lambda *a, **k: ProseResponse())
+    client = LLMClient(protocol="ollama", base_url="http://localhost:11434")
+    with pytest.raises(LLMResponseError, match="valid JSON"):
+        client.complete_json("system", "user", model="lfm3:1.7b")
+
+
+def test_empty_api_key_does_not_inherit_the_global_key():
+    client = LLMClient(
+        protocol="openai",
+        base_url="https://api.groq.com/openai/v1",
+        api_key="",
+    )
+    assert client.available is False
 
 
 def test_missing_token_fields_log_dashes(monkeypatch, caplog):

@@ -9,13 +9,14 @@ interface JobListProps {
   selectedJobId: number | null
   onSelect: (jobId: number) => void
   isLoading: boolean
+  isRefreshing?: boolean
   error: string | null
   onRetry: () => void
   onClearFilters: () => void
   activeCount: number
 }
 
-function RankingState() {
+function RankingProgress({ label }: { label: string }) {
   const [elapsed, setElapsed] = useState(0)
 
   useEffect(() => {
@@ -26,9 +27,9 @@ function RankingState() {
   }, [])
 
   return (
-    <section aria-busy="true">
+    <>
       <p className="text-[12px] text-muted" role="status">
-        Ranking fit across the openings
+        {label}
         {elapsed > 2 ? (
           <span aria-hidden="true"> · {elapsed}s</span>
         ) : (
@@ -43,6 +44,14 @@ function RankingState() {
           Still working. This is taking longer than usual.
         </p>
       ) : null}
+    </>
+  )
+}
+
+function RankingState() {
+  return (
+    <section aria-busy="true">
+      <RankingProgress label="Ranking fit across the openings" />
       <ul className="mt-4">
         {[0, 1, 2, 3].map((row) => (
           <li key={row} className="skeleton-row" aria-hidden="true">
@@ -64,6 +73,7 @@ export function JobList({
   selectedJobId,
   onSelect,
   isLoading,
+  isRefreshing = false,
   error,
   onRetry,
   onClearFilters,
@@ -158,6 +168,12 @@ export function JobList({
       <p className="sr-only" aria-live="polite">
         {selected ? `${selected.job.title} selected.` : ''}
       </p>
+
+      {isRefreshing ? (
+        <div className="mt-2" aria-busy="true">
+          <RankingProgress label="Re-ranking fit with the new filters" />
+        </div>
+      ) : null}
 
       <p className="mt-2 text-[11px] text-faint" aria-live="polite">
         {total} {total === 1 ? 'role' : 'roles'} shown
