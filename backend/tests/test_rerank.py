@@ -49,6 +49,14 @@ def test_rerank_timeout_only_applies_to_a_rerank_override():
         llm_rerank_timeout=30.0,
     )
     assert rerank_timeout(local) is None
+    key_only = Settings(
+        _env_file=None,
+        llm_rerank_protocol="",
+        llm_rerank_base_url="",
+        llm_rerank_api_key="leftover-key",
+        llm_rerank_timeout=30.0,
+    )
+    assert rerank_timeout(key_only) is None
     hosted = Settings(
         _env_file=None,
         llm_rerank_base_url="https://api.groq.com/openai/v1",

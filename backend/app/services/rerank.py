@@ -100,11 +100,7 @@ def rerank_timeout(settings: Settings) -> float | None:
 
     The hosted default (30 s) must not shorten the local model's cold start.
     """
-    if not (
-        settings.llm_rerank_protocol
-        or settings.llm_rerank_base_url
-        or settings.llm_rerank_api_key
-    ):
+    if not (settings.llm_rerank_protocol or settings.llm_rerank_base_url):
         return None
     return settings.llm_rerank_timeout
 
